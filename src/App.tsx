@@ -26,6 +26,9 @@ const UserShop = lazy(() => import("./pages/dashboard/user/UserShop"));
 const SellerDashboard = lazy(() => import("./pages/dashboard/seller/SellerDashboard"));
 const WorkerDashboard = lazy(() => import("./pages/dashboard/worker/WorkerDashboard"));
 const ShoppingCart = lazy(() => import("./pages/dashboard/user/ShoppingCart"));
+const ProductList = lazy(() => import("./pages/dashboard/seller/ProductList"));
+const AddProduct = lazy(() => import("./pages/dashboard/seller/AddProduct"));
+const EditProduct = lazy(() => import("./pages/dashboard/seller/EditProduct"));
 
 // Protected Route
 const ProtectedRoute = ({ children, role }: { children: React.ReactNode; role?: string }) => {
@@ -151,6 +154,30 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute role="seller">
                 <SellerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/seller/products"
+            element={
+              <ProtectedRoute role="seller">
+                <ProductList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/seller/add-product"
+            element={
+              <ProtectedRoute role="seller">
+                <AddProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/seller/products/:id"
+            element={
+              <ProtectedRoute role="seller">
+                <EditProduct />
               </ProtectedRoute>
             }
           />

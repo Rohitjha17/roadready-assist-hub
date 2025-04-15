@@ -1,5 +1,6 @@
+
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -10,6 +11,8 @@ import {
   Menu,
   X,
   User,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
@@ -25,12 +28,14 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   role: string[];
+  isActive?: (pathname: string) => boolean;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const { user, userRole, signOut, userData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -65,6 +70,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       href: `/dashboard/${userRole}`,
       icon: <LayoutDashboard className="h-5 w-5" />,
       role: ["user", "seller", "worker"],
+      isActive: (pathname) => pathname === `/dashboard/${userRole}`
     },
     {
       title: "Book Service",
@@ -75,7 +81,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     {
       title: "My Requests",
       href: "/dashboard/user/requests",
-      icon: <Car className="h-5 w-5" />,
+      icon: <ClipboardList className="h-5 w-5" />,
       role: ["user"],
     },
     {
@@ -85,7 +91,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       role: ["user"],
     },
     {
-      title: "Products",
+      title: "Shopping Cart",
+      href: "/dashboard/user/cart",
+      icon: <ShoppingCart className="h-5 w-5" />,
+      role: ["user"],
+    },
+    {
+      title: "Dashboard",
+      href: "/dashboard/seller",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+      role: ["seller"],
+      isActive: (pathname) => pathname === "/dashboard/seller",
+    },
+    {
+      title: "My Products",
       href: "/dashboard/seller/products",
       icon: <Package className="h-5 w-5" />,
       role: ["seller"],
@@ -97,10 +116,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       role: ["seller"],
     },
     {
-      title: "Service Requests",
-      href: "/dashboard/worker/requests",
-      icon: <Car className="h-5 w-5" />,
+      title: "Active Jobs",
+      href: "/dashboard/worker",
+      icon: <Truck className="h-5 w-5" />,
       role: ["worker"],
+      isActive: (pathname) => pathname === "/dashboard/worker",
     },
     {
       title: "Settings",
@@ -114,6 +134,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const filteredNavigation = navigation.filter((item) =>
     item.role.includes(userRole || "")
   );
+
+  // Check if the current path matches the nav item
+  const isActive = (navItem: NavItem) => {
+    if (navItem.isActive) {
+      return navItem.isActive(location.pathname);
+    }
+    return location.pathname === navItem.href;
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -163,7 +191,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     variant="ghost"
                     className={cn(
                       "w-full justify-start",
-                      window.location.pathname === item.href
+                      isActive(item)
                         ? "bg-gray-100 text-orva-blue"
                         : "text-gray-600 hover:text-orva-blue hover:bg-gray-50"
                     )}

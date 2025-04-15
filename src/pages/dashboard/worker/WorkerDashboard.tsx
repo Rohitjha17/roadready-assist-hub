@@ -1,148 +1,173 @@
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Car, Clock, CheckCircle, DollarSign, MapPin } from "lucide-react";
+import { Car, Clock, CheckCircle, MapPin } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const WorkerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeRequests, setActiveRequests] = useState<ServiceRequest[]>([]);
-  const [availableRequests, setAvailableRequests] = useState<ServiceRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchRequests = async () => {
-    if (!user?.id) return;
-    
-    setLoading(true);
-    
-    try {
-      // Get worker's assigned requests
-      const { data: workerRequests, error: workerError } = await supabase
+  // Fetch active requests (assigned to this worker)
+  const { data: activeRequests = [], isLoading: activeLoading } = useQuery({
+    queryKey: ['workerActiveRequests', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
         .from('service_requests')
         .select('*')
         .eq('worker_id', user.id)
         .eq('status', 'accepted');
       
-      if (workerError) {
-        console.error("Error fetching worker requests:", workerError);
-      } else if (workerRequests) {
-        const processedRequests = workerRequests.map(request => convertJsonToServiceRequest(request));
-        setActiveRequests(processedRequests);
+      if (error) {
+        console.error("Error fetching worker requests:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch your active service requests",
+          variant: "destructive",
+        });
+        return [];
       }
       
-      // Get available requests (pending, no worker assigned)
-      const { data: pendingRequests, error: pendingError } = await supabase
+      return data.map(request => convertJsonToServiceRequest(request));
+    },
+    enabled: !!user?.id
+  });
+
+  // Fetch available requests (pending, no worker assigned)
+  const { data: availableRequests = [], isLoading: availableLoading } = useQuery({
+    queryKey: ['availableRequests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('service_requests')
         .select('*')
         .eq('status', 'pending');
       
-      if (pendingError) {
-        console.error("Error fetching pending requests:", pendingError);
-      } else if (pendingRequests) {
-        const processedRequests = pendingRequests.map(request => convertJsonToServiceRequest(request));
-        setAvailableRequests(processedRequests);
+      if (error) {
+        console.error("Error fetching pending requests:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch available service requests",
+          variant: "destructive",
+        });
+        return [];
       }
-    } catch (error) {
-      console.error("Error in fetch requests:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      
+      return data.map(request => convertJsonToServiceRequest(request));
+    },
+    enabled: !!user?.id
+  });
 
-  useEffect(() => {
-    fetchRequests();
-  }, [user]);
+  // Fetch completed requests for this worker
+  const { data: completedRequests = [], isLoading: completedLoading } = useQuery({
+    queryKey: ['workerCompletedRequests', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('worker_id', user.id)
+        .eq('status', 'completed');
+      
+      if (error) {
+        console.error("Error fetching completed requests:", error);
+        return [];
+      }
+      
+      return data.map(request => convertJsonToServiceRequest(request));
+    },
+    enabled: !!user?.id
+  });
 
-  const handleAcceptRequest = async (requestId: string) => {
-    try {
+  // Accept request mutation
+  const acceptRequestMutation = useMutation({
+    mutationFn: async (requestId: string) => {
       const { error } = await supabase
         .from('service_requests')
         .update({
           worker_id: user?.id,
-          status: 'accepted'
+          status: 'accepted',
+          updated_at: new Date().toISOString()
         })
         .eq('id', requestId);
       
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to accept request: " + error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-      
+      if (error) throw error;
+      return requestId;
+    },
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "You have accepted the service request",
       });
-      
-      // Update the local state
-      const updatedRequest = availableRequests.find(req => req.id === requestId);
-      if (updatedRequest) {
-        const updatedRequestWithChanges = {
-          ...updatedRequest,
-          worker_id: user?.id,
-          status: "accepted" as const
-        };
-        
-        setActiveRequests([...activeRequests, updatedRequestWithChanges]);
-        setAvailableRequests(availableRequests.filter(req => req.id !== requestId));
-      }
-    } catch (error) {
+      // Invalidate relevant queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
+    },
+    onError: (error) => {
       console.error("Error accepting request:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "Failed to accept the request",
         variant: "destructive",
       });
     }
-  };
+  });
 
-  const handleCompleteRequest = async (requestId: string) => {
-    try {
+  // Complete request mutation
+  const completeRequestMutation = useMutation({
+    mutationFn: async (requestId: string) => {
       const { error } = await supabase
         .from('service_requests')
         .update({
           status: 'completed',
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', requestId);
       
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to complete request: " + error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-      
+      if (error) throw error;
+      return requestId;
+    },
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Service marked as completed",
       });
-      
-      // Update the local state
-      setActiveRequests(activeRequests.filter(req => req.id !== requestId));
-    } catch (error) {
+      // Invalidate relevant queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
+    },
+    onError: (error) => {
       console.error("Error completing request:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "Failed to complete the request",
         variant: "destructive",
       });
     }
+  });
+
+  const handleAcceptRequest = (requestId: string) => {
+    acceptRequestMutation.mutate(requestId);
   };
+
+  const handleCompleteRequest = (requestId: string) => {
+    completeRequestMutation.mutate(requestId);
+  };
+
+  const isLoading = activeLoading || availableLoading || completedLoading;
 
   return (
     <DashboardLayout>
@@ -181,7 +206,7 @@ const WorkerDashboard = () => {
             <CardContent>
               <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{completedRequests.length}</p>
               </div>
             </CardContent>
           </Card>
@@ -189,7 +214,7 @@ const WorkerDashboard = () => {
         
         <h2 className="text-xl font-semibold">Your Active Jobs</h2>
         
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-24">
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
           </div>
@@ -208,13 +233,17 @@ const WorkerDashboard = () => {
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <div className="flex items-center text-gray-500 text-sm">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {request.location.address}, {request.location.city}, {request.location.state} {request.location.zipCode}
+                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
                       </div>
                     </div>
                     
                     <div className="flex space-x-2">
-                      <Button size="sm" onClick={() => handleCompleteRequest(request.id)}>
-                        Complete Job
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleCompleteRequest(request.id)}
+                        disabled={completeRequestMutation.isPending}
+                      >
+                        {completeRequestMutation.isPending ? 'Processing...' : 'Complete Job'}
                       </Button>
                     </div>
                   </div>
@@ -232,7 +261,7 @@ const WorkerDashboard = () => {
         
         <h2 className="text-xl font-semibold">Available Service Requests</h2>
         
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-24">
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
           </div>
@@ -251,13 +280,17 @@ const WorkerDashboard = () => {
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <div className="flex items-center text-gray-500 text-sm">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {request.location.address}, {request.location.city}, {request.location.state} {request.location.zipCode}
+                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
                       </div>
                     </div>
                     
                     <div className="flex space-x-2">
-                      <Button size="sm" onClick={() => handleAcceptRequest(request.id)}>
-                        Accept Job
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleAcceptRequest(request.id)}
+                        disabled={acceptRequestMutation.isPending}
+                      >
+                        {acceptRequestMutation.isPending ? 'Processing...' : 'Accept Job'}
                       </Button>
                     </div>
                   </div>
@@ -269,6 +302,48 @@ const WorkerDashboard = () => {
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-gray-500">There are no available service requests at this time.</p>
+            </CardContent>
+          </Card>
+        )}
+        
+        <h2 className="text-xl font-semibold">Completed Jobs</h2>
+        
+        {isLoading ? (
+          <div className="flex justify-center items-center h-24">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : completedRequests.length > 0 ? (
+          <div className="space-y-4">
+            {completedRequests.map((request) => (
+              <Card key={request.id}>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <Car className="h-5 w-5 mr-2 text-blue-500" />
+                        <h3 className="font-medium text-lg">{request.service_type}</h3>
+                        <Badge className="ml-2 bg-green-500">Completed</Badge>
+                      </div>
+                      <p className="text-gray-600 mb-2">{request.description}</p>
+                      <div className="flex items-center text-gray-500 text-sm">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
+                      </div>
+                      {request.completed_at && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Completed on: {new Date(request.completed_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-gray-500">You have no completed jobs yet.</p>
             </CardContent>
           </Card>
         )}

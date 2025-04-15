@@ -8,38 +8,37 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/types";
+import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const SellerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (!user?.id) return;
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['sellerProducts', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
       
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('seller_id', user.id);
-        
-        if (error) {
-          console.error("Error fetching products:", error);
-        } else {
-          setProducts(data || []);
-        }
-      } catch (error) {
-        console.error("Error in fetch products:", error);
-      } finally {
-        setLoading(false);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('seller_id', user.id);
+      
+      if (error) {
+        console.error("Error fetching products:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch your products",
+          variant: "destructive",
+        });
+        return [];
       }
-    };
-    
-    fetchProducts();
-  }, [user]);
+      return data as Product[];
+    },
+    enabled: !!user?.id
+  });
 
   // Calculate some basic stats
   const totalProducts = products.length;
@@ -108,7 +107,7 @@ const SellerDashboard = () => {
           </Button>
         </div>
         
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-24">
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
           </div>
@@ -128,9 +127,11 @@ const SellerDashboard = () => {
                   <p className="text-sm text-gray-500 mb-2">{product.category}</p>
                   <div className="flex justify-between items-center">
                     <p className="font-semibold">${product.price.toFixed(2)}</p>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/seller/products/${product.id}`)}>
-                      Edit
-                    </Button>
+                    <div className="space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/seller/products/${product.id}`)}>
+                        Edit
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
