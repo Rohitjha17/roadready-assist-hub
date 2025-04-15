@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Product, ServiceRequest, convertJsonToServiceRequest } from "@/types";
+import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
 import { UserRole } from "@/types";
 
 // Products functions
@@ -8,12 +9,16 @@ export const addProduct = async (productData: Partial<Product>) => {
   try {
     const { data, error } = await supabase
       .from('products')
-      .insert([
-        {
-          ...productData,
-          created_at: new Date().toISOString()
-        }
-      ])
+      .insert([{
+        name: productData.name || '',
+        price: productData.price || 0,
+        description: productData.description,
+        category: productData.category,
+        image: productData.image || productData.imageUrl,
+        seller_id: productData.seller_id,
+        stock: productData.stock || 0,
+        created_at: new Date().toISOString()
+      }])
       .select();
     
     if (error) {
@@ -50,18 +55,7 @@ export const getProducts = async (filters: Record<string, any> = {}) => {
     }
     
     // Convert to Product interface
-    const products: Product[] = data.map(item => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      category: item.category,
-      image: item.image,
-      seller_id: item.seller_id,
-      stock: item.stock || 0,
-      created_at: item.created_at,
-      updated_at: item.updated_at
-    }));
+    const products: Product[] = data.map(item => convertToProduct(item));
     
     return { products, error: null };
   } catch (error) {
@@ -73,15 +67,18 @@ export const getProducts = async (filters: Record<string, any> = {}) => {
 // Service requests functions
 export const createServiceRequest = async (requestData: Partial<ServiceRequest>) => {
   try {
+    const preparedData = {
+      user_id: requestData.user_id || '',
+      service_type: requestData.service_type || '',
+      description: requestData.description,
+      location: requestData.location || { address: 'Unknown location' },
+      status: requestData.status || 'pending',
+      created_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('service_requests')
-      .insert([
-        {
-          ...requestData,
-          status: "pending",
-          created_at: new Date().toISOString()
-        }
-      ])
+      .insert([preparedData])
       .select();
     
     if (error) {

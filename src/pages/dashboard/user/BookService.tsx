@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -44,7 +43,6 @@ const BookService = () => {
   const [zipCode, setZipCode] = useState('');
   const [vehicleInfo, setVehicleInfo] = useState('');
 
-  // Set service type from URL parameter
   useEffect(() => {
     if (typeParam && serviceTypes.some(s => s.id === typeParam)) {
       setServiceType(typeParam);
@@ -76,21 +74,21 @@ const BookService = () => {
     setLoading(true);
 
     try {
-      const requestData = {
-        user_id: user.id,
+      const serviceRequest = {
+        user_id: user?.id || "",
         service_type: serviceType,
-        description: description || 'No additional details provided',
+        description: description,
         location: {
-          address,
-          city,
-          state,
-          zipCode,
-          vehicleInfo: vehicleInfo || 'No vehicle information provided',
+          address: address,
+          city: city,
+          state: state, 
+          zipCode: zipCode,
+          vehicleInfo: vehicleInfo
         },
-        status: 'pending',
+        status: "pending" as "pending" | "accepted" | "completed" | "cancelled"
       };
 
-      const { id, error } = await createServiceRequest(requestData);
+      const { id, error } = await createServiceRequest(serviceRequest);
 
       if (error) {
         throw error;

@@ -62,8 +62,19 @@ export function convertJsonToServiceRequest(data: any): ServiceRequest {
   }
 
   return {
-    ...data,
+    id: data.id,
+    user_id: data.user_id,
+    worker_id: data.worker_id,
+    service_type: data.service_type,
+    description: data.description,
     location,
+    status: data.status as "pending" | "accepted" | "completed" | "cancelled",
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    completed_at: data.completed_at,
+    price: data.price,
+    rating: data.rating,
+    review: data.review
   };
 }
 
