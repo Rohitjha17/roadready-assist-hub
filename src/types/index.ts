@@ -40,7 +40,7 @@ export interface ServiceRequest {
   };
   status: "pending" | "accepted" | "completed" | "cancelled";
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   completed_at?: string;
   price?: number;
   rating?: number;

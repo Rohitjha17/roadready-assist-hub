@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
@@ -104,7 +105,7 @@ const EditProduct = () => {
         .from("product-images")
         .getPublicUrl(filePath);
 
-      setProduct((prev) => ({ ...prev, image_url: publicUrl }));
+      setProduct((prev) => ({ ...prev, imageUrl: publicUrl }));
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -131,7 +132,7 @@ const EditProduct = () => {
           category: product.category,
           brand: product.brand,
           stock: product.stock,
-          image_url: product.image_url,
+          image: product.imageUrl,
         })
         .eq("id", product.id)
         .eq("seller_id", user.id);
@@ -264,9 +265,9 @@ const EditProduct = () => {
                 <div className="space-y-2">
                   <Label htmlFor="image">Product Image</Label>
                   <div className="flex items-center space-x-4">
-                    {product.image_url && (
+                    {product.imageUrl && (
                       <img
-                        src={product.image_url}
+                        src={product.imageUrl}
                         alt={product.name}
                         className="h-20 w-20 rounded object-cover"
                       />

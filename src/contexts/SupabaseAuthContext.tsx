@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -60,13 +62,17 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
       }
-    }).finally(() => {
+    }).catch(error => {
+      console.error("Error getting session:", error);
       setLoading(false);
     });
 
@@ -75,6 +81,7 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("Fetching profile for user:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -87,7 +94,8 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Handle case where user profile doesn't exist yet
         // Set default values from the user metadata if available
         if (user && user.user_metadata) {
-          const role = user.user_metadata.role as UserRole || "user";
+          const role = (user.user_metadata.role as UserRole) || "user";
+          console.log("Using metadata role:", role);
           setUserRole(role);
           setUserData({
             id: userId,
@@ -96,30 +104,43 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
         } else {
           // Default to user role if no profile exists
+          console.log("Setting default user role");
           setUserRole("user");
+          setUserData({
+            id: userId,
+            name: user?.email?.split('@')[0] || 'User',
+            role: "user"
+          });
         }
-        return;
-      }
-
-      if (data) {
-        setUserRole(data.role as UserRole || "user");
+      } else if (data) {
+        console.log("Profile found:", data);
+        setUserRole((data.role as UserRole) || "user");
         setUserData(data);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       // Default to user role if there's an error
       setUserRole("user");
+      setUserData({
+        id: userId,
+        name: user?.email?.split('@')[0] || 'User',
+        role: "user"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("Attempting sign in for:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Sign in error:", error);
         toast({
           title: "Error signing in",
           description: error.message,
@@ -147,6 +168,7 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
+      console.log("Attempting sign up for:", email, userData);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -156,6 +178,7 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
 
       if (error) {
+        console.error("Sign up error:", error);
         toast({
           title: "Error signing up",
           description: error.message,
@@ -183,9 +206,11 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const signOut = async () => {
     try {
+      console.log("Signing out");
       const { error } = await supabase.auth.signOut();
       
       if (error) {
+        console.error("Sign out error:", error);
         toast({
           title: "Error signing out",
           description: error.message,

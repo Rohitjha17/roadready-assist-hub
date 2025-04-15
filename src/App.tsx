@@ -33,10 +33,17 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode; role?: 
   const navigate = useNavigate();
   
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    } else if (!loading && user && role && userRole && userRole !== role) {
-      navigate(`/dashboard/${userRole}`);
+    if (!loading) {
+      console.log("Protected route check:", { userId: user?.id, userRole, requiredRole: role });
+      
+      if (!user) {
+        console.log("No user, redirecting to login");
+        navigate("/login");
+      } else if (role && userRole && userRole !== role) {
+        console.log(`Role mismatch: ${userRole} !== ${role}, redirecting`);
+        // Navigate to the appropriate dashboard based on role
+        navigate(`/dashboard/${userRole}`);
+      }
     }
   }, [user, userRole, loading, role, navigate]);
   
@@ -62,12 +69,17 @@ const DashboardRedirect = () => {
   
   useEffect(() => {
     if (!loading) {
+      console.log("Dashboard redirect check:", { userId: user?.id, userRole });
+      
       if (!user) {
+        console.log("No user, redirecting to login");
         navigate("/login");
       } else if (userRole) {
+        console.log(`Redirecting to ${userRole} dashboard`);
         navigate(`/dashboard/${userRole}`);
       } else {
         // If userRole is null or undefined, default to user dashboard
+        console.log("No role found, defaulting to user dashboard");
         navigate("/dashboard/user");
       }
     }
