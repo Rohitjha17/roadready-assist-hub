@@ -1,9 +1,10 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { Product, ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { UserRole } from "@/types";
 
 // Products functions
-export const addProduct = async (productData: any) => {
+export const addProduct = async (productData: Partial<Product>) => {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -27,7 +28,7 @@ export const addProduct = async (productData: any) => {
   }
 };
 
-export const getProducts = async (filters = {}) => {
+export const getProducts = async (filters: Record<string, any> = {}) => {
   try {
     let query = supabase
       .from('products')
@@ -35,7 +36,10 @@ export const getProducts = async (filters = {}) => {
     
     // Apply filters if provided
     Object.entries(filters).forEach(([key, value]) => {
-      query = query.eq(key, value);
+      if (value !== undefined && value !== null) {
+        // @ts-ignore - This is safe because we're using dynamic keys
+        query = query.eq(key, value);
+      }
     });
     
     const { data, error } = await query;
@@ -45,7 +49,21 @@ export const getProducts = async (filters = {}) => {
       return { products: [], error };
     }
     
-    return { products: data || [], error: null };
+    // Convert to Product interface
+    const products: Product[] = data.map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      category: item.category,
+      image: item.image,
+      seller_id: item.seller_id,
+      stock: item.stock || 0,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+    
+    return { products, error: null };
   } catch (error) {
     console.error("Error fetching products:", error);
     return { products: [], error };
@@ -53,7 +71,7 @@ export const getProducts = async (filters = {}) => {
 };
 
 // Service requests functions
-export const createServiceRequest = async (requestData: any) => {
+export const createServiceRequest = async (requestData: Partial<ServiceRequest>) => {
   try {
     const { data, error } = await supabase
       .from('service_requests')
@@ -78,7 +96,7 @@ export const createServiceRequest = async (requestData: any) => {
   }
 };
 
-export const getServiceRequests = async (filters = {}) => {
+export const getServiceRequests = async (filters: Record<string, any> = {}) => {
   try {
     let query = supabase
       .from('service_requests')
@@ -86,7 +104,10 @@ export const getServiceRequests = async (filters = {}) => {
     
     // Apply filters if provided
     Object.entries(filters).forEach(([key, value]) => {
-      query = query.eq(key, value);
+      if (value !== undefined && value !== null) {
+        // @ts-ignore - This is safe because we're using dynamic keys
+        query = query.eq(key, value);
+      }
     });
     
     const { data, error } = await query;
@@ -96,18 +117,27 @@ export const getServiceRequests = async (filters = {}) => {
       return { requests: [], error };
     }
     
-    return { requests: data || [], error: null };
+    // Convert to ServiceRequest interface with proper location handling
+    const requests: ServiceRequest[] = data.map(item => convertJsonToServiceRequest(item));
+    
+    return { requests, error: null };
   } catch (error) {
     console.error("Error fetching service requests:", error);
     return { requests: [], error };
   }
 };
 
-export const updateServiceRequest = async (requestId: string, updateData: any) => {
+export const updateServiceRequest = async (requestId: string, updateData: Partial<ServiceRequest>) => {
   try {
+    // Ensure location is JSON if it's an object
+    const dataToUpdate = { ...updateData };
+    if (dataToUpdate.location && typeof dataToUpdate.location === 'object') {
+      dataToUpdate.location = dataToUpdate.location as any;
+    }
+
     const { error } = await supabase
       .from('service_requests')
-      .update(updateData)
+      .update(dataToUpdate)
       .eq('id', requestId);
     
     if (error) {

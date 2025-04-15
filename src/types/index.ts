@@ -1,4 +1,6 @@
 
+import { Json } from "@/integrations/supabase/types";
+
 // User Roles
 export type UserRole = "user" | "seller" | "worker";
 
@@ -43,6 +45,26 @@ export interface ServiceRequest {
   price?: number;
   rating?: number;
   review?: string;
+}
+
+// Handle Json to ServiceRequest conversion
+export function convertJsonToServiceRequest(data: any): ServiceRequest {
+  // Handle location conversion
+  let location: any;
+  if (typeof data.location === 'string') {
+    try {
+      location = JSON.parse(data.location);
+    } catch (e) {
+      location = { address: "Unknown location" };
+    }
+  } else {
+    location = data.location || { address: "Unknown location" };
+  }
+
+  return {
+    ...data,
+    location,
+  };
 }
 
 // User interface

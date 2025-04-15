@@ -1,14 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image?: string;
-}
+import { CartItem } from '@/types';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -34,11 +26,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
-  // Calculate totals
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const totalPrice = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
 
-  // Load cart from localStorage on initial render
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
@@ -50,18 +40,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addToCart = (itemToAdd: Omit<CartItem, 'quantity'>) => {
     setCartItems(prevItems => {
-      // Check if item already exists in cart
       const existingItemIndex = prevItems.findIndex(item => item.id === itemToAdd.id);
       
       if (existingItemIndex !== -1) {
-        // Item exists, increment quantity
         const updatedItems = [...prevItems];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
@@ -69,7 +56,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         return updatedItems;
       } else {
-        // Item doesn't exist, add new item with quantity 1
         return [...prevItems, { ...itemToAdd, quantity: 1 }];
       }
     });
