@@ -7,7 +7,7 @@ import { Car, Wrench, Clock, CheckCircle, AlertCircle, ShoppingCart } from "luci
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { ServiceRequest } from "@/types";
+import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
 
 const UserDashboard = () => {
   const { user, userData } = useAuth();
@@ -29,8 +29,10 @@ const UserDashboard = () => {
         
         if (error) {
           console.error("Error fetching requests:", error);
-        } else {
-          setActiveRequests(data || []);
+        } else if (data) {
+          // Convert data to ServiceRequest type using the convertJsonToServiceRequest function
+          const requests = data.map(item => convertJsonToServiceRequest(item));
+          setActiveRequests(requests);
         }
       } catch (error) {
         console.error("Error in fetch requests:", error);

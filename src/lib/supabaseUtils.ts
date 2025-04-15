@@ -1,3 +1,4 @@
+
 import { Product, ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { Json } from "@/integrations/supabase/types";
 
@@ -6,18 +7,18 @@ import { Json } from "@/integrations/supabase/types";
  */
 export function convertToProduct(data: any): Product {
   return {
-    id: data.id,
-    name: data.name,
-    description: data.description,
-    price: data.price,
-    category: data.category,
-    image: data.image,
-    imageUrl: data.image,  // For compatibility
-    seller_id: data.seller_id,
+    id: data.id || '',
+    name: data.name || '',
+    description: data.description || '',
+    price: data.price || 0,
+    category: data.category || '',
+    image: data.image || '',
+    imageUrl: data.image || '',  // For compatibility
+    seller_id: data.seller_id || '',
     brand: data.brand || '',  // Add default to prevent undefined
     stock: data.stock || 0,
-    created_at: data.created_at,
-    updated_at: data.updated_at
+    created_at: data.created_at || '',
+    updated_at: data.updated_at || ''
   };
 }
 

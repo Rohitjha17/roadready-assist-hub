@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode; role?: 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/login");
-    } else if (!loading && user && role && userRole !== role) {
+    } else if (!loading && user && role && userRole && userRole !== role) {
       navigate(`/dashboard/${userRole}`);
     }
   }, [user, userRole, loading, role, navigate]);
@@ -48,7 +48,7 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode; role?: 
     return null; // Will redirect in useEffect
   }
   
-  if (role && userRole !== role) {
+  if (role && userRole && userRole !== role) {
     return null; // Will redirect in useEffect
   }
   
@@ -67,7 +67,8 @@ const DashboardRedirect = () => {
       } else if (userRole) {
         navigate(`/dashboard/${userRole}`);
       } else {
-        navigate("/dashboard/user"); // Default fallback
+        // If userRole is null or undefined, default to user dashboard
+        navigate("/dashboard/user");
       }
     }
   }, [user, userRole, loading, navigate]);

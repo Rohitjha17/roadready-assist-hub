@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,15 +83,32 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        
+        // Handle case where user profile doesn't exist yet
+        // Set default values from the user metadata if available
+        if (user && user.user_metadata) {
+          const role = user.user_metadata.role as UserRole || "user";
+          setUserRole(role);
+          setUserData({
+            id: userId,
+            name: user.user_metadata.name || user.email?.split('@')[0] || 'User',
+            role: role
+          });
+        } else {
+          // Default to user role if no profile exists
+          setUserRole("user");
+        }
         return;
       }
 
       if (data) {
-        setUserRole(data.role as UserRole);
+        setUserRole(data.role as UserRole || "user");
         setUserData(data);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      // Default to user role if there's an error
+      setUserRole("user");
     }
   };
 

@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
+import { Product } from "@/types";
+import { convertToProduct } from "@/lib/supabaseUtils";
 
 const PRODUCT_CATEGORIES = [
   "Auto Parts",
@@ -21,17 +23,6 @@ const PRODUCT_CATEGORIES = [
   "Maintenance Supplies",
   "Other",
 ];
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  brand: string;
-  stock: number;
-  image_url: string;
-}
 
 const EditProduct = () => {
   const navigate = useNavigate();
@@ -48,7 +39,8 @@ const EditProduct = () => {
     category: "",
     brand: "",
     stock: 0,
-    image_url: "",
+    image: "",
+    imageUrl: "",
   });
 
   useEffect(() => {
@@ -69,7 +61,7 @@ const EditProduct = () => {
       if (error) throw error;
 
       if (data) {
-        setProduct(data);
+        setProduct(convertToProduct(data));
       } else {
         toast({
           title: "Error",
@@ -340,4 +332,4 @@ const EditProduct = () => {
   );
 };
 
-export default EditProduct; 
+export default EditProduct;

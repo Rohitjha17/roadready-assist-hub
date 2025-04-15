@@ -6,8 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Car, Clock, CheckCircle, DollarSign, MapPin } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
-import { getServiceRequests, updateServiceRequest } from "@/lib/supabaseService";
-import { ServiceRequest } from "@/types";
+import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,8 +34,9 @@ const WorkerDashboard = () => {
       
       if (workerError) {
         console.error("Error fetching worker requests:", workerError);
-      } else {
-        setActiveRequests(workerRequests || []);
+      } else if (workerRequests) {
+        const processedRequests = workerRequests.map(request => convertJsonToServiceRequest(request));
+        setActiveRequests(processedRequests);
       }
       
       // Get available requests (pending, no worker assigned)
@@ -47,8 +47,9 @@ const WorkerDashboard = () => {
       
       if (pendingError) {
         console.error("Error fetching pending requests:", pendingError);
-      } else {
-        setAvailableRequests(pendingRequests || []);
+      } else if (pendingRequests) {
+        const processedRequests = pendingRequests.map(request => convertJsonToServiceRequest(request));
+        setAvailableRequests(processedRequests);
       }
     } catch (error) {
       console.error("Error in fetch requests:", error);
