@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Car, Wrench, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
-import { getServiceRequests } from "@/lib/firebase";
+import { supabase } from "@/integrations/supabase/client";
 import { ServiceRequest } from "@/types";
 
 const UserDashboard = () => {
@@ -19,21 +20,17 @@ const UserDashboard = () => {
       if (!user?.id) return;
       
       try {
-        const { requests, error } = await getServiceRequests({ 
-          userId: user.id,
-          status: "pending" 
-        });
-        
-        if (requests) {
-          // Filter for active requests (pending or accepted)
-          const active = requests.filter(
-            (req) => req.status === "pending" || req.status === "accepted"
-          );
-          setActiveRequests(active);
-        }
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('service_requests')
+          .select('*')
+          .eq('user_id', user.id)
+          .or('status.eq.pending,status.eq.accepted');
         
         if (error) {
           console.error("Error fetching requests:", error);
+        } else {
+          setActiveRequests(data || []);
         }
       } catch (error) {
         console.error("Error in fetch requests:", error);
@@ -134,7 +131,9 @@ const UserDashboard = () => {
         <h2 className="text-xl font-semibold mt-6">Active Service Requests</h2>
         
         {loading ? (
-          <p>Loading your service requests...</p>
+          <div className="flex justify-center items-center h-24">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
         ) : activeRequests.length > 0 ? (
           <div className="space-y-4">
             {activeRequests.map((request) => (
@@ -143,8 +142,8 @@ const UserDashboard = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center mb-2">
-                        <Car className="h-5 w-5 mr-2 text-orva-blue" />
-                        <h3 className="font-medium text-lg">{request.serviceType}</h3>
+                        <Car className="h-5 w-5 mr-2 text-blue-500" />
+                        <h3 className="font-medium text-lg">{request.service_type}</h3>
                       </div>
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <p className="text-gray-500 text-sm">{request.location.address}</p>
@@ -154,10 +153,6 @@ const UserDashboard = () => {
                         <span className="ml-2 text-sm font-medium">{getStatusText(request.status)}</span>
                       </div>
                     </div>
-                    
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/user/requests/${request.id}`)}>
-                      View Details
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

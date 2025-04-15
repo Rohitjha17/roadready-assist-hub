@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -26,6 +26,7 @@ import { UserRole } from "@/types";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const roleParam = searchParams.get("role") as UserRole | null;
   
   const [name, setName] = useState("");
@@ -33,11 +34,24 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
   const [role, setRole] = useState<UserRole>(roleParam || "user");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, user, userRole } = useAuth();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (userRole) {
+        navigate(`/dashboard/${userRole}`);
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, userRole, navigate]);
 
   useEffect(() => {
     if (roleParam && ["user", "seller", "worker"].includes(roleParam)) {
@@ -52,7 +66,7 @@ const Register = () => {
     if (!name || !email || !password || !confirmPassword || !phone) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
@@ -75,6 +89,24 @@ const Register = () => {
       });
       return;
     }
+
+    if (role === "seller" && !businessName) {
+      toast({
+        title: "Error",
+        description: "Please enter your business name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (role === "worker" && !serviceArea) {
+      toast({
+        title: "Error",
+        description: "Please enter your service area",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setLoading(true);
     
@@ -83,6 +115,8 @@ const Register = () => {
         name,
         phone,
         role,
+        businessName: role === "seller" ? businessName : undefined,
+        serviceArea: role === "worker" ? serviceArea : undefined
       };
       
       const { error, data } = await signUp(email, password, userData);
@@ -93,7 +127,12 @@ const Register = () => {
           description: "Account created successfully. Please check your email to confirm your registration.",
         });
         
-        navigate("/login");
+        const redirectTo = new URLSearchParams(location.search).get("redirectTo");
+        if (redirectTo) {
+          navigate(redirectTo);
+        } else {
+          navigate("/login");
+        }
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -111,6 +150,8 @@ const Register = () => {
             <Input
               id="businessName"
               placeholder="Your Business Name"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
               required
             />
           </div>
@@ -122,6 +163,8 @@ const Register = () => {
             <Input
               id="serviceArea"
               placeholder="City, State"
+              value={serviceArea}
+              onChange={(e) => setServiceArea(e.target.value)}
               required
             />
           </div>

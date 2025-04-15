@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { UserRole, Product, ServiceRequest } from "@/types";
+import { UserRole } from "@/types";
 
 // Products functions
 export const addProduct = async (productData: any) => {
@@ -42,13 +42,13 @@ export const getProducts = async (filters = {}) => {
     
     if (error) {
       console.error("Error fetching products:", error);
-      return { products: [] as Product[], error };
+      return { products: [], error };
     }
     
-    return { products: data as Product[], error: null };
+    return { products: data || [], error: null };
   } catch (error) {
     console.error("Error fetching products:", error);
-    return { products: [] as Product[], error };
+    return { products: [], error };
   }
 };
 
@@ -93,13 +93,13 @@ export const getServiceRequests = async (filters = {}) => {
     
     if (error) {
       console.error("Error fetching service requests:", error);
-      return { requests: [] as ServiceRequest[], error };
+      return { requests: [], error };
     }
     
-    return { requests: data as ServiceRequest[], error: null };
+    return { requests: data || [], error: null };
   } catch (error) {
     console.error("Error fetching service requests:", error);
-    return { requests: [] as ServiceRequest[], error };
+    return { requests: [], error };
   }
 };
 
@@ -123,7 +123,7 @@ export const updateServiceRequest = async (requestId: string, updateData: any) =
 };
 
 // User data functions
-export const getUserData = async (userId: string) => {
+export const getUserProfile = async (userId: string) => {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -132,13 +132,13 @@ export const getUserData = async (userId: string) => {
       .single();
     
     if (error) {
-      console.error("Error fetching user data:", error);
-      return { userData: null, error };
+      console.error("Error fetching user profile:", error);
+      return { profile: null, error };
     }
     
-    return { userData: data, error: null };
+    return { profile: data, error: null };
   } catch (error) {
-    console.error("Error fetching user data:", error);
-    return { userData: null, error };
+    console.error("Error fetching user profile:", error);
+    return { profile: null, error };
   }
 };

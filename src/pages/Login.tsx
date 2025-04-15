@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -21,8 +21,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const location = useLocation();
+  const { signIn, user, userRole } = useAuth();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (userRole) {
+        navigate(`/dashboard/${userRole}`);
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, userRole, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +54,14 @@ const Login = () => {
       const { error, data } = await signIn(email, password);
       
       if (!error && data) {
-        // User will be redirected based on role in useEffect in AuthContext
+        const redirectTo = new URLSearchParams(location.search).get("redirectTo");
+        if (redirectTo) {
+          navigate(redirectTo);
+        } else if (userRole) {
+          navigate(`/dashboard/${userRole}`);
+        } else {
+          navigate("/dashboard");
+        }
       }
     } catch (error) {
       console.error("Login error:", error);

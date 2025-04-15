@@ -6,66 +6,113 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      users: {
+      products: {
         Row: {
-          id: string
-          email: string
+          category: string | null
           created_at: string
+          description: string | null
+          id: string
+          image: string | null
+          name: string
+          price: number
+          seller_id: string | null
+          stock: number | null
           updated_at: string
-          full_name: string | null
-          avatar_url: string | null
         }
         Insert: {
-          id?: string
-          email: string
+          category?: string | null
           created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          name: string
+          price: number
+          seller_id?: string | null
+          stock?: number | null
           updated_at?: string
-          full_name?: string | null
-          avatar_url?: string | null
         }
         Update: {
-          id?: string
-          email?: string
+          category?: string | null
           created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          name?: string
+          price?: number
+          seller_id?: string | null
+          stock?: number | null
           updated_at?: string
-          full_name?: string | null
-          avatar_url?: string | null
         }
+        Relationships: []
       }
       profiles: {
         Row: {
-          id: string
-          user_id: string
           created_at: string
+          id: string
+          name: string | null
+          phone: string | null
+          role: string | null
           updated_at: string
-          username: string | null
-          bio: string | null
-          website: string | null
-          location: string | null
         }
         Insert: {
-          id?: string
-          user_id: string
           created_at?: string
+          id: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
           updated_at?: string
-          username?: string | null
-          bio?: string | null
-          website?: string | null
-          location?: string | null
         }
         Update: {
-          id?: string
-          user_id?: string
           created_at?: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
           updated_at?: string
-          username?: string | null
-          bio?: string | null
-          website?: string | null
-          location?: string | null
         }
+        Relationships: []
+      }
+      service_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          location: Json
+          service_type: string
+          status: string
+          updated_at: string
+          user_id: string
+          worker_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          location: Json
+          service_type: string
+          status: string
+          updated_at?: string
+          user_id: string
+          worker_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: Json
+          service_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          worker_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

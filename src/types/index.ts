@@ -1,47 +1,89 @@
 
+// User Roles
 export type UserRole = "user" | "seller" | "worker";
 
-export interface User {
-  uid: string;
-  email: string;
-  role: UserRole;
-  name?: string;
-  phone?: string;
-  location?: string;
-  createdAt: string;
-}
-
+// Product interface
 export interface Product {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
-  brand: string;
-  category: string;
-  imageUrl: string;
-  sellerId: string;
-  createdAt: string;
+  category?: string;
+  imageUrl?: string;
+  image?: string;
+  seller_id?: string;
+  brand?: string;
+  stock: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
+// Service Request interface
 export interface ServiceRequest {
   id: string;
-  userId: string;
-  serviceType: string;
-  description: string;
+  user_id: string;
+  worker_id?: string;
+  service_type: string;
+  description?: string;
   location: {
-    latitude: number;
-    longitude: number;
     address: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+    [key: string]: any;
   };
   status: "pending" | "accepted" | "completed" | "cancelled";
-  workerId?: string;
-  createdAt: string;
-  completedAt?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  price?: number;
+  rating?: number;
+  review?: string;
 }
 
-export interface Service {
+// User interface
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role?: UserRole;
+  avatar_url?: string;
+  created_at?: string;
+}
+
+// Profile interface
+export interface Profile {
+  id: string;
+  name?: string;
+  phone?: string;
+  role?: UserRole;
+  businessName?: string;
+  serviceArea?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Order interface
+export interface Order {
+  id: string;
+  user_id: string;
+  product_id: string;
+  quantity: number;
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  total_price: number;
+}
+
+// Cart Item interface
+export interface CartItem {
   id: string;
   name: string;
-  description: string;
-  imageUrl: string;
+  price: number;
+  quantity: number;
+  image?: string;
 }

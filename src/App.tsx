@@ -1,10 +1,12 @@
+
 import { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { SupabaseAuthProvider, useAuth } from "@/contexts/SupabaseAuthContext";
+import { CartProvider } from "@/contexts/CartContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
@@ -23,24 +25,54 @@ const BookService = lazy(() => import("./pages/dashboard/user/BookService"));
 const UserShop = lazy(() => import("./pages/dashboard/user/UserShop"));
 const SellerDashboard = lazy(() => import("./pages/dashboard/seller/SellerDashboard"));
 const WorkerDashboard = lazy(() => import("./pages/dashboard/worker/WorkerDashboard"));
+const ShoppingCart = lazy(() => import("./pages/dashboard/user/ShoppingCart"));
 
 // Protected Route
 const ProtectedRoute = ({ children, role }: { children: React.ReactNode; role?: string }) => {
   const { user, userRole, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    } else if (!loading && user && role && userRole !== role) {
+      navigate(`/dashboard/${userRole}`);
+    }
+  }, [user, userRole, loading, role, navigate]);
   
   if (loading) {
     return <LoadingSpinner />;
   }
   
   if (!user) {
-    return <Navigate to="/login" />;
+    return null; // Will redirect in useEffect
   }
   
   if (role && userRole !== role) {
-    return <Navigate to={`/dashboard/${userRole}`} />;
+    return null; // Will redirect in useEffect
   }
   
   return <>{children}</>;
+};
+
+// Redirect to dashboard based on role
+const DashboardRedirect = () => {
+  const { user, userRole, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        navigate("/login");
+      } else if (userRole) {
+        navigate(`/dashboard/${userRole}`);
+      } else {
+        navigate("/dashboard/user"); // Default fallback
+      }
+    }
+  }, [user, userRole, loading, navigate]);
+  
+  return <LoadingSpinner />;
 };
 
 const queryClient = new QueryClient({
@@ -55,10 +87,6 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  useEffect(() => {
-    console.log("AppRoutes mounted");
-  }, []);
-
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingSpinner />}>
@@ -95,6 +123,14 @@ const AppRoutes = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/user/cart"
+            element={
+              <ProtectedRoute role="user">
+                <ShoppingCart />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Seller Dashboard */}
           <Route
@@ -117,10 +153,7 @@ const AppRoutes = () => {
           />
           
           {/* Dashboard redirect based on role */}
-          <Route
-            path="/dashboard"
-            element={<Navigate to="/dashboard/user" replace />}
-          />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
           
           {/* Catch-all for 404 */}
           <Route path="*" element={<NotFound />} />
@@ -131,21 +164,19 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  useEffect(() => {
-    console.log("App component mounted");
-  }, []);
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <SupabaseAuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </CartProvider>
         </SupabaseAuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

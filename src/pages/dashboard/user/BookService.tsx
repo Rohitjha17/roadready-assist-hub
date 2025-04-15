@@ -1,165 +1,259 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/SupabaseAuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, MapPin, Wrench, Clock } from "lucide-react";
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { createServiceRequest } from '@/lib/supabaseService';
+import { Car, MapPin } from 'lucide-react';
 
 const serviceTypes = [
-  { id: "towing", name: "Towing Service", icon: Car },
-  { id: "battery", name: "Battery Jump Start", icon: Wrench },
-  { id: "tire", name: "Flat Tire Replacement", icon: Car },
-  { id: "fuel", name: "Fuel Delivery", icon: Car },
-  { id: "lockout", name: "Lockout Service", icon: Wrench },
-  { id: "mechanic", name: "Mobile Mechanic", icon: Wrench },
+  { id: 'towing', name: 'Towing Service' },
+  { id: 'battery', name: 'Battery Jump Start' },
+  { id: 'flat-tire', name: 'Flat Tire Change' },
+  { id: 'lockout', name: 'Lockout Assistance' },
+  { id: 'fuel-delivery', name: 'Fuel Delivery' },
+  { id: 'mechanical', name: 'Mechanical Repairs' },
 ];
 
 const BookService = () => {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get('type');
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    serviceType: "",
-    description: "",
-    location: {
-      address: "",
-      latitude: 0,
-      longitude: 0,
-    },
-  });
+  const [serviceType, setServiceType] = useState(typeParam || 'towing');
+  const [description, setDescription] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zipCode, setZipCode] = useState('');
+  const [vehicleInfo, setVehicleInfo] = useState('');
+
+  // Set service type from URL parameter
+  useEffect(() => {
+    if (typeParam && serviceTypes.some(s => s.id === typeParam)) {
+      setServiceType(typeParam);
+    }
+  }, [typeParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+
+    if (!serviceType || !address || !city || !state || !zipCode) {
+      toast({
+        title: 'Missing information',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: 'Login required',
+        description: 'You need to be logged in to request a service',
+        variant: 'destructive',
+      });
+      navigate('/login?redirectTo=/dashboard/user/book-service');
+      return;
+    }
 
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("service_requests")
-        .insert([
-          {
-            user_id: user.id,
-            service_type: formData.serviceType,
-            description: formData.description,
-            location: formData.location,
-            status: "pending",
-          },
-        ])
-        .select()
-        .single();
 
-      if (error) throw error;
+    try {
+      const requestData = {
+        user_id: user.id,
+        service_type: serviceType,
+        description: description || 'No additional details provided',
+        location: {
+          address,
+          city,
+          state,
+          zipCode,
+          vehicleInfo: vehicleInfo || 'No vehicle information provided',
+        },
+        status: 'pending',
+      };
+
+      const { id, error } = await createServiceRequest(requestData);
+
+      if (error) {
+        throw error;
+      }
 
       toast({
-        title: "Success",
-        description: "Service request created successfully",
+        title: 'Service request submitted',
+        description: 'Your request has been received. A service provider will contact you shortly.',
       });
 
-      navigate("/dashboard/user");
-    } catch (error: any) {
-      console.error("Error creating service request:", error);
+      navigate('/dashboard/user');
+    } catch (error) {
+      console.error('Error submitting service request:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to create service request",
-        variant: "destructive",
+        title: 'Error',
+        description: 'There was a problem submitting your request. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      location: {
-        ...prev.location,
-        address: e.target.value,
-      },
-    }));
+  const getServiceName = (id: string) => {
+    const service = serviceTypes.find(s => s.id === id);
+    return service ? service.name : id;
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto">
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Request Roadside Assistance</h1>
+
         <Card>
           <CardHeader>
-            <CardTitle>Book a Service</CardTitle>
+            <CardTitle>Book a {getServiceName(serviceType)}</CardTitle>
             <CardDescription>
-              Fill out the form below to request roadside assistance
+              Fill in the details below and we'll send a service provider to your location.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Service Type</label>
-                <Select
-                  value={formData.serviceType}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, serviceType: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {serviceTypes.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        <div className="flex items-center">
-                          <service.icon className="mr-2 h-4 w-4" />
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="serviceType">Service Type</Label>
+                  <Select value={serviceType} onValueChange={setServiceType}>
+                    <SelectTrigger id="serviceType">
+                      <SelectValue placeholder="Select a service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceTypes.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
                           {service.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Location</label>
-                <div className="flex">
-                  <MapPin className="h-4 w-4 mt-2 mr-2 text-gray-500" />
+                <div>
+                  <Label htmlFor="vehicleInfo">Vehicle Information (optional)</Label>
                   <Input
-                    placeholder="Enter your location"
-                    value={formData.location.address}
-                    onChange={handleLocationChange}
-                    required
+                    id="vehicleInfo"
+                    placeholder="Year, Make, Model, Color"
+                    value={vehicleInfo}
+                    onChange={(e) => setVehicleInfo(e.target.value)}
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Problem Description (optional)</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Provide details about your issue..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+
+                <div className="pt-4">
+                  <h3 className="text-lg font-medium mb-4">Your Location</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label htmlFor="address">Street Address</Label>
+                      <Input
+                        id="address"
+                        placeholder="123 Main St"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="city">City</Label>
+                        <Input
+                          id="city"
+                          placeholder="City"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="state">State</Label>
+                        <Input
+                          id="state"
+                          placeholder="State"
+                          value={state}
+                          onChange={(e) => setState(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="zipCode">ZIP Code</Label>
+                        <Input
+                          id="zipCode"
+                          placeholder="ZIP Code"
+                          value={zipCode}
+                          onChange={(e) => setZipCode(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  placeholder="Describe your issue in detail"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  required
-                />
+              <div className="flex justify-end space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/dashboard/user')}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Submitting...' : 'Request Service'}
+                </Button>
               </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Clock className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Request...
-                  </>
-                ) : (
-                  "Request Service"
-                )}
-              </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-50">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-4">
+              <Car className="h-10 w-10 text-blue-500 flex-shrink-0" />
+              <div>
+                <h3 className="text-lg font-medium mb-2">Need immediate help?</h3>
+                <p className="text-gray-600 mb-4">
+                  For urgent situations, you can call our emergency hotline for faster assistance.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.href = "tel:+15551234567"}
+                >
+                  Call (555) 123-4567
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

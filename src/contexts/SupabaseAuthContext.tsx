@@ -135,11 +135,7 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         email,
         password,
         options: {
-          data: {
-            name: userData.name,
-            role: userData.role,
-            ...userData,
-          },
+          data: userData,
         },
       });
 

@@ -1,3 +1,4 @@
+
 import React from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,17 @@ const Services = () => {
   const handleServiceRequest = (serviceType: string) => {
     if (user) {
       // If user is logged in, navigate to the service request form
-      navigate(`/dashboard/user/book-service?type=${serviceType}`);
+      if (userRole === "user") {
+        navigate(`/dashboard/user/book-service?type=${serviceType}`);
+      } else if (userRole === "worker" || userRole === "seller") {
+        toast({
+          title: "Role Restriction",
+          description: "Please login with a user account to request services",
+          variant: "destructive",
+        });
+      } else {
+        navigate(`/dashboard/user/book-service?type=${serviceType}`);
+      }
     } else {
       // If user is not logged in, prompt them to log in
       toast({
@@ -23,7 +34,7 @@ const Services = () => {
         description: "Please login or create an account to request this service",
         variant: "destructive",
       });
-      navigate("/login?redirectTo=/services");
+      navigate(`/login?redirectTo=/services`);
     }
   };
 
@@ -32,37 +43,37 @@ const Services = () => {
       id: "towing",
       name: "Towing Service",
       description: "Vehicle towing for breakdowns or accidents",
-      icon: <Truck className="h-10 w-10 text-orva-blue" />,
+      icon: <Truck className="h-10 w-10 text-blue-500" />,
     },
     {
       id: "battery",
       name: "Battery Jump Start",
       description: "Quick jump start when your battery dies",
-      icon: <Battery className="h-10 w-10 text-orva-blue" />,
+      icon: <Battery className="h-10 w-10 text-blue-500" />,
     },
     {
       id: "flat-tire",
       name: "Flat Tire Change",
       description: "Tire replacement or repair on the spot",
-      icon: <Car className="h-10 w-10 text-orva-blue" />,
+      icon: <Car className="h-10 w-10 text-blue-500" />,
     },
     {
       id: "lockout",
       name: "Lockout Assistance",
       description: "Help when you're locked out of your vehicle",
-      icon: <Key className="h-10 w-10 text-orva-blue" />,
+      icon: <Key className="h-10 w-10 text-blue-500" />,
     },
     {
       id: "fuel-delivery",
       name: "Fuel Delivery",
       description: "Bringing fuel when you run out on the road",
-      icon: <AlertTriangle className="h-10 w-10 text-orva-blue" />,
+      icon: <AlertTriangle className="h-10 w-10 text-blue-500" />,
     },
     {
       id: "mechanical",
       name: "Mechanical Repairs",
       description: "On-site repairs for basic mechanical issues",
-      icon: <Wrench className="h-10 w-10 text-orva-blue" />,
+      icon: <Wrench className="h-10 w-10 text-blue-500" />,
     },
   ];
 
@@ -90,7 +101,6 @@ const Services = () => {
                 <CardContent className="flex justify-center pt-4">
                   <Button 
                     onClick={() => handleServiceRequest(service.id)}
-                    className="bg-orva-blue hover:bg-orva-blue-light"
                   >
                     Request Service
                   </Button>
