@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
@@ -10,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Upload, Loader2 } from "lucide-react";
+import { addProduct } from "@/lib/supabaseService";
 
 const categories = [
   "Battery",
@@ -38,30 +40,50 @@ const AddProduct = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user) {
+      console.log("No file selected or user not logged in");
+      return;
+    }
 
     setUploading(true);
     try {
+      // Create storage bucket if it doesn't exist
+      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('products');
+      if (bucketError && bucketError.message.includes('does not exist')) {
+        // Create the bucket if it doesn't exist
+        await supabase.storage.createBucket('products', { public: true });
+      }
+      
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log("Uploading file:", filePath);
+      const { error: uploadError, data } = await supabase.storage
         .from("products")
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        throw uploadError;
+      }
 
+      console.log("Upload successful, getting public URL");
       const { data: { publicUrl } } = supabase.storage
         .from("products")
         .getPublicUrl(filePath);
 
+      console.log("Public URL:", publicUrl);
       setFormData((prev) => ({ ...prev, imageUrl: publicUrl }));
+      
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully",
+      });
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
         title: "Error",
-        description: "Failed to upload image",
+        description: error.message || "Failed to upload image",
         variant: "destructive",
       });
     } finally {
@@ -75,22 +97,17 @@ const AddProduct = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .insert([
-          {
-            seller_id: user.id,
-            name: formData.name,
-            description: formData.description,
-            price: parseFloat(formData.price),
-            category: formData.category,
-            brand: formData.brand,
-            stock: parseInt(formData.stock),
-            image_url: formData.imageUrl,
-          },
-        ])
-        .select()
-        .single();
+      // Use the addProduct function from supabaseService
+      const { id, error } = await addProduct({
+        seller_id: user.id,
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        brand: formData.brand,
+        stock: parseInt(formData.stock),
+        image: formData.imageUrl,
+      });
 
       if (error) throw error;
 
@@ -250,7 +267,7 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || uploading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -268,4 +285,4 @@ const AddProduct = () => {
   );
 };
 
-export default AddProduct; 
+export default AddProduct;

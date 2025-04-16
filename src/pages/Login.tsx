@@ -25,14 +25,11 @@ const Login = () => {
   const { signIn, user, userRole } = useAuth();
   const { toast } = useToast();
 
-  // Redirect if already logged in
+  // Check if user is already logged in and redirect
   useEffect(() => {
-    if (user) {
-      if (userRole) {
-        navigate(`/dashboard/${userRole}`);
-      } else {
-        navigate("/dashboard");
-      }
+    if (user && userRole) {
+      console.log("User already logged in, redirecting to dashboard:", userRole);
+      navigate(`/dashboard/${userRole}`);
     }
   }, [user, userRole, navigate]);
 
@@ -53,14 +50,21 @@ const Login = () => {
     try {
       const { error, data } = await signIn(email, password);
       
-      if (!error && data) {
+      if (error) {
+        console.error("Login error:", error);
+        // Error is already handled in the signIn function with toast
+      } else if (data) {
+        // Get the user role from the data
+        const role = data.user?.user_metadata?.role || "user";
+        
+        console.log("Login successful, redirecting to dashboard:", role);
+        
+        // Redirect based on role
         const redirectTo = new URLSearchParams(location.search).get("redirectTo");
         if (redirectTo) {
           navigate(redirectTo);
-        } else if (userRole) {
-          navigate(`/dashboard/${userRole}`);
         } else {
-          navigate("/dashboard");
+          navigate(`/dashboard/${role}`);
         }
       }
     } catch (error) {

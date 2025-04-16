@@ -7,6 +7,9 @@ import { UserRole } from "@/types";
 // Products functions
 export const addProduct = async (productData: Partial<Product>) => {
   try {
+    // Ensure the products storage bucket exists
+    await ensureStorageBucketExists('products');
+    
     const { data, error } = await supabase
       .from('products')
       .insert([{
@@ -30,6 +33,33 @@ export const addProduct = async (productData: Partial<Product>) => {
   } catch (error) {
     console.error("Error adding product:", error);
     return { id: null, error };
+  }
+};
+
+// Helper function to ensure storage bucket exists
+export const ensureStorageBucketExists = async (bucketName: string) => {
+  try {
+    // Check if bucket exists
+    const { data, error } = await supabase.storage.getBucket(bucketName);
+    
+    // If bucket doesn't exist, create it
+    if (error && error.message.includes('does not exist')) {
+      const { data: createdBucket, error: createError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+      });
+      
+      if (createError) {
+        console.error(`Error creating ${bucketName} bucket:`, createError);
+      } else {
+        console.log(`Created ${bucketName} bucket successfully`);
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Error ensuring ${bucketName} bucket exists:`, error);
+    return { success: false, error };
   }
 };
 

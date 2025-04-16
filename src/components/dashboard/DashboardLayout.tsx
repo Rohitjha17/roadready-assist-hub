@@ -24,6 +24,7 @@ interface DashboardLayoutProps {
 }
 
 interface NavItem {
+  id: string;
   title: string;
   href: string;
   icon: React.ReactNode;
@@ -66,6 +67,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const navigation: NavItem[] = [
     {
+      id: "user-dashboard",
       title: "Dashboard",
       href: `/dashboard/${userRole}`,
       icon: <LayoutDashboard className="h-5 w-5" />,
@@ -73,30 +75,35 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       isActive: (pathname) => pathname === `/dashboard/${userRole}`
     },
     {
+      id: "user-book-service",
       title: "Book Service",
       href: "/dashboard/user/book-service",
       icon: <Car className="h-5 w-5" />,
       role: ["user"],
     },
     {
+      id: "user-requests",
       title: "My Requests",
       href: "/dashboard/user/requests",
       icon: <ClipboardList className="h-5 w-5" />,
       role: ["user"],
     },
     {
+      id: "user-shop",
       title: "Shop",
       href: "/dashboard/user/shop",
       icon: <ShoppingCart className="h-5 w-5" />,
       role: ["user"],
     },
     {
+      id: "user-cart",
       title: "Shopping Cart",
       href: "/dashboard/user/cart",
       icon: <ShoppingCart className="h-5 w-5" />,
       role: ["user"],
     },
     {
+      id: "seller-dashboard",
       title: "Dashboard",
       href: "/dashboard/seller",
       icon: <LayoutDashboard className="h-5 w-5" />,
@@ -104,18 +111,21 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       isActive: (pathname) => pathname === "/dashboard/seller",
     },
     {
+      id: "seller-products",
       title: "My Products",
       href: "/dashboard/seller/products",
       icon: <Package className="h-5 w-5" />,
       role: ["seller"],
     },
     {
+      id: "seller-add-product",
       title: "Add Product",
       href: "/dashboard/seller/add-product",
       icon: <Package className="h-5 w-5" />,
       role: ["seller"],
     },
     {
+      id: "worker-dashboard",
       title: "Active Jobs",
       href: "/dashboard/worker",
       icon: <Truck className="h-5 w-5" />,
@@ -123,6 +133,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       isActive: (pathname) => pathname === "/dashboard/worker",
     },
     {
+      id: "user-settings",
       title: "Settings",
       href: `/dashboard/${userRole}/settings`,
       icon: <Settings className="h-5 w-5" />,
@@ -186,7 +197,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-1">
               {filteredNavigation.map((item) => (
-                <li key={item.href}>
+                <li key={item.id}>
                   <Button
                     variant="ghost"
                     className={cn(

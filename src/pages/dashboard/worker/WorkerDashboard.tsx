@@ -17,6 +17,8 @@ const WorkerDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
   // Fetch active requests (assigned to this worker)
   const { data: activeRequests = [], isLoading: activeLoading } = useQuery({
@@ -94,17 +96,22 @@ const WorkerDashboard = () => {
   // Accept request mutation
   const acceptRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('service_requests')
-        .update({
-          worker_id: user?.id,
-          status: 'accepted',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
-      
-      if (error) throw error;
-      return requestId;
+      setAcceptingId(requestId);
+      try {
+        const { error } = await supabase
+          .from('service_requests')
+          .update({
+            worker_id: user?.id,
+            status: 'accepted',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', requestId);
+        
+        if (error) throw error;
+        return requestId;
+      } finally {
+        setAcceptingId(null);
+      }
     },
     onSuccess: () => {
       toast({
@@ -128,17 +135,22 @@ const WorkerDashboard = () => {
   // Complete request mutation
   const completeRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('service_requests')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
-      
-      if (error) throw error;
-      return requestId;
+      setCompletingId(requestId);
+      try {
+        const { error } = await supabase
+          .from('service_requests')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', requestId);
+        
+        if (error) throw error;
+        return requestId;
+      } finally {
+        setCompletingId(null);
+      }
     },
     onSuccess: () => {
       toast({
@@ -241,9 +253,9 @@ const WorkerDashboard = () => {
                       <Button 
                         size="sm" 
                         onClick={() => handleCompleteRequest(request.id)}
-                        disabled={completeRequestMutation.isPending}
+                        disabled={completingId === request.id}
                       >
-                        {completeRequestMutation.isPending ? 'Processing...' : 'Complete Job'}
+                        {completingId === request.id ? 'Processing...' : 'Complete Job'}
                       </Button>
                     </div>
                   </div>
@@ -288,9 +300,9 @@ const WorkerDashboard = () => {
                       <Button 
                         size="sm" 
                         onClick={() => handleAcceptRequest(request.id)}
-                        disabled={acceptRequestMutation.isPending}
+                        disabled={acceptingId === request.id}
                       >
-                        {acceptRequestMutation.isPending ? 'Processing...' : 'Accept Job'}
+                        {acceptingId === request.id ? 'Processing...' : 'Accept Job'}
                       </Button>
                     </div>
                   </div>
