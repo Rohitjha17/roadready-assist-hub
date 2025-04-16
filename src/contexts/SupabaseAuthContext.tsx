@@ -41,6 +41,8 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("Initializing Supabase Auth Provider...");
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -73,10 +75,17 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     }).catch(error => {
       console.error("Error getting session:", error);
+      toast({
+        title: "Authentication Error",
+        description: "Failed to retrieve session. Please try logging in again.",
+        variant: "destructive"
+      });
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
@@ -91,43 +100,22 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (error) {
         console.error('Error fetching user profile:', error);
         
-        // Handle case where user profile doesn't exist yet
-        // Set default values from the user metadata if available
-        if (user && user.user_metadata) {
-          const role = (user.user_metadata.role as UserRole) || "user";
-          console.log("Using metadata role:", role);
-          setUserRole(role);
-          setUserData({
-            id: userId,
-            name: user.user_metadata.name || user.email?.split('@')[0] || 'User',
-            role: role
-          });
-        } else {
-          // Default to user role if no profile exists
-          console.log("Setting default user role");
-          setUserRole("user");
-          setUserData({
-            id: userId,
-            name: user?.email?.split('@')[0] || 'User',
-            role: "user"
-          });
-        }
+        // Fallback to user metadata if profile doesn't exist
+        const role = user?.user_metadata?.role || "user";
+        setUserRole(role as UserRole);
+        setUserData({
+          id: userId,
+          name: user?.email?.split('@')[0] || 'User',
+          role: role
+        });
       } else if (data) {
         console.log("Profile found:", data);
-        // Ensure role is a valid UserRole
         const role = (data.role || "user") as UserRole;
         setUserRole(role);
         setUserData(data);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      // Default to user role if there's an error
-      setUserRole("user");
-      setUserData({
-        id: userId,
-        name: user?.email?.split('@')[0] || 'User',
-        role: "user"
-      });
     } finally {
       setLoading(false);
     }
@@ -158,10 +146,10 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       return { error: null, data };
     } catch (error: any) {
-      console.error("Sign in error:", error);
+      console.error("Unexpected sign in error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during login",
         variant: "destructive",
       });
       return { error, data: null };
@@ -191,15 +179,15 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       toast({
         title: "Success",
-        description: "Account created successfully",
+        description: "Account created successfully. Please check your email to confirm your registration.",
       });
 
       return { error: null, data };
     } catch (error: any) {
-      console.error("Sign up error:", error);
+      console.error("Unexpected sign up error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during registration",
         variant: "destructive",
       });
       return { error, data: null };
@@ -228,10 +216,10 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       return { error: null };
     } catch (error: any) {
-      console.error("Sign out error:", error);
+      console.error("Unexpected sign out error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during sign out",
         variant: "destructive",
       });
       return { error };
