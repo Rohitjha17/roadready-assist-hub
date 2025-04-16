@@ -58,14 +58,21 @@ const Login = () => {
         const role = data.user?.user_metadata?.role || "user";
         
         console.log("Login successful, redirecting to dashboard:", role);
+        toast({
+          title: "Success",
+          description: "You have been signed in successfully",
+        });
         
-        // Redirect based on role
-        const redirectTo = new URLSearchParams(location.search).get("redirectTo");
-        if (redirectTo) {
-          navigate(redirectTo);
-        } else {
-          navigate(`/dashboard/${role}`);
-        }
+        // Short timeout to allow the toast to be seen and to ensure auth state is updated
+        setTimeout(() => {
+          // Redirect based on role
+          const redirectTo = new URLSearchParams(location.search).get("redirectTo");
+          if (redirectTo) {
+            navigate(redirectTo);
+          } else {
+            navigate(`/dashboard/${role}`);
+          }
+        }, 500);
       }
     } catch (error) {
       console.error("Login error:", error);

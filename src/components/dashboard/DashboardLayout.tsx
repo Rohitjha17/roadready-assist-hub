@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -41,6 +40,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     try {
+      console.log("Attempting to log out");
       const { error } = await signOut();
       if (!error) {
         toast({
@@ -49,6 +49,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         });
         navigate("/");
       } else {
+        console.error("Logout error:", error);
         toast({
           title: "Error",
           description: "Failed to log out. Please try again.",
@@ -64,6 +65,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       });
     }
   };
+
+  console.log("Current user role:", userRole);
+  console.log("Current location:", location.pathname);
 
   const navigation: NavItem[] = [
     {

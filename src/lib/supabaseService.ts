@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Product, ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
@@ -7,6 +6,8 @@ import { UserRole } from "@/types";
 // Products functions
 export const addProduct = async (productData: Partial<Product>) => {
   try {
+    console.log("Adding product with data:", productData);
+    
     // Ensure the products storage bucket exists
     await ensureStorageBucketExists('products');
     
@@ -29,6 +30,7 @@ export const addProduct = async (productData: Partial<Product>) => {
       return { id: null, error };
     }
     
+    console.log("Product added successfully:", data);
     return { id: data?.[0]?.id, error: null };
   } catch (error) {
     console.error("Error adding product:", error);
@@ -39,11 +41,14 @@ export const addProduct = async (productData: Partial<Product>) => {
 // Helper function to ensure storage bucket exists
 export const ensureStorageBucketExists = async (bucketName: string) => {
   try {
+    console.log(`Ensuring ${bucketName} bucket exists...`);
+    
     // Check if bucket exists
     const { data, error } = await supabase.storage.getBucket(bucketName);
     
     // If bucket doesn't exist, create it
-    if (error && error.message.includes('does not exist')) {
+    if (error) {
+      console.log(`Bucket doesn't exist, creating ${bucketName}...`);
       const { data: createdBucket, error: createError } = await supabase.storage.createBucket(bucketName, {
         public: true,
         fileSizeLimit: 10485760, // 10MB
@@ -54,6 +59,8 @@ export const ensureStorageBucketExists = async (bucketName: string) => {
       } else {
         console.log(`Created ${bucketName} bucket successfully`);
       }
+    } else {
+      console.log(`${bucketName} bucket already exists`);
     }
     
     return { success: true };

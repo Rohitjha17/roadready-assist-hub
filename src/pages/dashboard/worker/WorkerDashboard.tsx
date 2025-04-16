@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,6 +97,7 @@ const WorkerDashboard = () => {
     mutationFn: async (requestId: string) => {
       setAcceptingId(requestId);
       try {
+        console.log("Accepting request:", requestId, "by worker:", user?.id);
         const { error } = await supabase
           .from('service_requests')
           .update({
@@ -107,13 +107,21 @@ const WorkerDashboard = () => {
           })
           .eq('id', requestId);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error in supabase update:", error);
+          throw error;
+        }
+        
         return requestId;
+      } catch (err) {
+        console.error("Error in mutation function:", err);
+        throw err;
       } finally {
         setAcceptingId(null);
       }
     },
-    onSuccess: () => {
+    onSuccess: (requestId) => {
+      console.log("Successfully accepted request:", requestId);
       toast({
         title: "Success",
         description: "You have accepted the service request",
@@ -126,7 +134,7 @@ const WorkerDashboard = () => {
       console.error("Error accepting request:", error);
       toast({
         title: "Error",
-        description: "Failed to accept the request",
+        description: "Failed to accept the request. Please try again.",
         variant: "destructive",
       });
     }
@@ -172,6 +180,7 @@ const WorkerDashboard = () => {
   });
 
   const handleAcceptRequest = (requestId: string) => {
+    console.log("Handling accept request for ID:", requestId);
     acceptRequestMutation.mutate(requestId);
   };
 

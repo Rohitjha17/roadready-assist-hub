@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
@@ -11,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Upload, Loader2 } from "lucide-react";
-import { addProduct } from "@/lib/supabaseService";
+import { addProduct, ensureStorageBucketExists } from "@/lib/supabaseService";
 
 const categories = [
   "Battery",
@@ -47,12 +46,10 @@ const AddProduct = () => {
 
     setUploading(true);
     try {
-      // Create storage bucket if it doesn't exist
-      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('products');
-      if (bucketError && bucketError.message.includes('does not exist')) {
-        // Create the bucket if it doesn't exist
-        await supabase.storage.createBucket('products', { public: true });
-      }
+      console.log("Starting image upload process");
+      
+      // Ensure storage bucket exists
+      await ensureStorageBucketExists('products');
       
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
@@ -64,6 +61,7 @@ const AddProduct = () => {
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
+        console.error("Upload error:", uploadError);
         throw uploadError;
       }
 
@@ -93,10 +91,37 @@ const AddProduct = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a product",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.name || !formData.price || !formData.category) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log("Adding product with data:", {
+        seller_id: user.id,
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        brand: formData.brand,
+        stock: parseInt(formData.stock),
+        imageUrl: formData.imageUrl,
+      });
+      
       // Use the addProduct function from supabaseService
       const { id, error } = await addProduct({
         seller_id: user.id,
@@ -109,7 +134,10 @@ const AddProduct = () => {
         image: formData.imageUrl,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error returned from addProduct:", error);
+        throw error;
+      }
 
       toast({
         title: "Success",
