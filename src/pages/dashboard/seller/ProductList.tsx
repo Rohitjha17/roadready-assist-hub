@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
@@ -9,34 +10,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Package, Edit, Trash2, Loader2, Plus } from "lucide-react";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  brand: string;
-  stock: number;
-  image_url: string;
-  created_at: string;
-}
+import { Product } from "@/types";
+import { convertToProduct } from "@/lib/supabaseUtils";
+import { useQuery } from "@tanstack/react-query";
 
 const ProductList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
-    if (!user) return;
-
-    try {
+  
+  const { data: products = [], isLoading, refetch } = useQuery({
+    queryKey: ['sellerProductsList', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -44,19 +31,11 @@ const ProductList = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-
-      setProducts(data || []);
-    } catch (error: any) {
-      console.error("Error fetching products:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch products",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      
+      return (data || []).map(item => convertToProduct(item));
+    },
+    enabled: !!user
+  });
 
   const handleDelete = async (productId: string) => {
     if (!user) return;
@@ -74,8 +53,8 @@ const ProductList = () => {
         title: "Success",
         description: "Product deleted successfully",
       });
-
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
+      
+      refetch();
     } catch (error: any) {
       console.error("Error deleting product:", error);
       toast({
@@ -101,7 +80,7 @@ const ProductList = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Products</h1>
-          <Button onClick={() => navigate("/dashboard/seller/products/add")}>
+          <Button onClick={() => navigate("/dashboard/seller/add-product")}>
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
@@ -115,7 +94,7 @@ const ProductList = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {isLoading ? (
               <div className="flex justify-center items-center h-32">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
@@ -127,7 +106,7 @@ const ProductList = () => {
                   Get started by adding a new product.
                 </p>
                 <div className="mt-6">
-                  <Button onClick={() => navigate("/dashboard/seller/products/add")}>
+                  <Button onClick={() => navigate("/dashboard/seller/add-product")}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Product
                   </Button>
@@ -150,23 +129,23 @@ const ProductList = () => {
                     <TableRow key={product.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
-                          {product.image_url && (
+                          {product.image_url || product.image || product.imageUrl ? (
                             <img
-                              src={product.image_url}
+                              src={product.image_url || product.image || product.imageUrl}
                               alt={product.name}
                               className="h-10 w-10 rounded object-cover"
                             />
-                          )}
+                          ) : null}
                           <div>
                             <div className="font-medium">{product.name}</div>
                             <div className="text-sm text-gray-500">
-                              {product.brand}
+                              {product.brand || 'No brand'}
                             </div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>${product.price.toFixed(2)}</TableCell>
+                      <TableCell>{product.category || 'Uncategorized'}</TableCell>
+                      <TableCell>${product.price?.toFixed(2) || '0.00'}</TableCell>
                       <TableCell>{product.stock}</TableCell>
                       <TableCell>{getStockStatus(product.stock)}</TableCell>
                       <TableCell className="text-right">
@@ -175,7 +154,7 @@ const ProductList = () => {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              navigate(`/dashboard/seller/products/${product.id}/edit`)
+                              navigate(`/dashboard/seller/products/${product.id}`)
                             }
                           >
                             <Edit className="h-4 w-4" />
@@ -201,4 +180,4 @@ const ProductList = () => {
   );
 };
 
-export default ProductList; 
+export default ProductList;

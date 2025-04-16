@@ -114,7 +114,9 @@ export const SupabaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       } else if (data) {
         console.log("Profile found:", data);
-        setUserRole((data.role as UserRole) || "user");
+        // Ensure role is a valid UserRole
+        const role = (data.role || "user") as UserRole;
+        setUserRole(role);
         setUserData(data);
       }
     } catch (error) {

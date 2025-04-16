@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { convertToProduct } from "@/lib/supabaseUtils";
 
 const SellerDashboard = () => {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ const SellerDashboard = () => {
         });
         return [];
       }
-      return data as Product[];
+      return (data || []).map(item => convertToProduct(item));
     },
     enabled: !!user?.id
   });
@@ -117,14 +118,14 @@ const SellerDashboard = () => {
               <Card key={product.id}>
                 <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-t-lg bg-gray-200">
                   <img
-                    src={product.image || product.imageUrl || "https://via.placeholder.com/300"}
+                    src={product.image || product.imageUrl || product.image_url || "https://via.placeholder.com/300"}
                     alt={product.name}
                     className="h-48 w-full object-cover"
                   />
                 </div>
                 <CardContent className="p-4">
                   <h3 className="text-lg font-medium">{product.name}</h3>
-                  <p className="text-sm text-gray-500 mb-2">{product.category}</p>
+                  <p className="text-sm text-gray-500 mb-2">{product.category || 'Uncategorized'}</p>
                   <div className="flex justify-between items-center">
                     <p className="font-semibold">${product.price.toFixed(2)}</p>
                     <div className="space-x-2">

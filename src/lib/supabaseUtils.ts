@@ -14,8 +14,9 @@ export function convertToProduct(data: any): Product {
     category: data.category || '',
     image: data.image || '',
     imageUrl: data.image || '',  // For compatibility
+    image_url: data.image || data.image_url || '',  // Added for compatibility
     seller_id: data.seller_id || '',
-    brand: data.brand || '',  // Add default to prevent undefined
+    brand: data.brand || '',
     stock: data.stock || 0,
     created_at: data.created_at || '',
     updated_at: data.updated_at || ''

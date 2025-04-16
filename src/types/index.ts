@@ -18,6 +18,7 @@ export interface Product {
   stock: number;
   created_at?: string;
   updated_at?: string;
+  image_url?: string; // Added to handle both naming conventions
 }
 
 // Service Request interface
