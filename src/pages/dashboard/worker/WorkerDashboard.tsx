@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,8 @@ const WorkerDashboard = () => {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [userProfileOpen, setUserProfileOpen] = useState(false);
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
   // Fetch active requests (assigned to this worker)
   const { data: activeRequests = [], isLoading: activeLoading, refetch: refetchActive } = useQuery({
@@ -60,7 +61,7 @@ const WorkerDashboard = () => {
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 3000, // Refresh more frequently
+    refetchInterval: 1000, // More frequent refreshing
   });
 
   // Fetch available requests (pending, no worker assigned)
@@ -115,13 +116,13 @@ const WorkerDashboard = () => {
     refetchInterval: 5000,
   });
 
-  // Set up realtime subscription
+  // Set up realtime subscription with improved channel name
   useEffect(() => {
     if (!user?.id) return;
     
     console.log("Setting up realtime subscription for worker dashboard");
     const channel = supabase
-      .channel('worker_dashboard_changes')
+      .channel('worker_dashboard_updates')
       .on(
         'postgres_changes',
         {
@@ -132,7 +133,7 @@ const WorkerDashboard = () => {
         (payload) => {
           console.log('Realtime update received in worker dashboard:', payload);
           
-          // Force refresh all data
+          // Force refresh all data immediately
           refetchActive();
           refetchAvailable();
           refetchCompleted();
@@ -141,8 +142,6 @@ const WorkerDashboard = () => {
           queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
           queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
           queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
-          queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
-          queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
         }
       )
       .subscribe();
@@ -153,7 +152,7 @@ const WorkerDashboard = () => {
     };
   }, [user?.id, queryClient, refetchActive, refetchAvailable, refetchCompleted]);
 
-  // Accept request mutation
+  // Accept request mutation with improved handling
   const acceptRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
       setAcceptingId(requestId);
@@ -176,19 +175,22 @@ const WorkerDashboard = () => {
           throw new Error("This request is no longer available");
         }
         
-        // Now update the request - using the updateServiceRequest function
-        const { success, error, data } = await updateServiceRequest(requestId, {
-          worker_id: user?.id,
-          status: 'accepted',
-          updated_at: new Date().toISOString()
-        });
+        // Direct Supabase update for faster processing
+        const { error: updateError } = await supabase
+          .from('service_requests')
+          .update({
+            worker_id: user?.id,
+            status: 'accepted',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', requestId);
         
-        if (error || !success) {
-          console.error("Error in service update:", error);
-          throw error || new Error("Failed to update service request");
+        if (updateError) {
+          console.error("Error in direct Supabase update:", updateError);
+          throw updateError;
         }
         
-        console.log("Successfully updated service request:", data);
+        console.log("Successfully accepted request:", requestId);
         return requestId;
       } catch (err) {
         console.error("Error in mutation function:", err);
@@ -198,7 +200,7 @@ const WorkerDashboard = () => {
       }
     },
     onSuccess: (requestId) => {
-      console.log("Successfully accepted request:", requestId);
+      console.log("Successfully accepted request in mutation handler:", requestId);
       toast({
         title: "Success",
         description: "You have accepted the service request",
@@ -206,6 +208,7 @@ const WorkerDashboard = () => {
       
       // Force immediate refetch
       setTimeout(() => {
+        console.log("Forcing refetch after accept");
         // Force refresh all data
         refetchActive();
         refetchAvailable();
@@ -213,9 +216,7 @@ const WorkerDashboard = () => {
         // Invalidate all relevant queries
         queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
         queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
-        queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
-        queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
-      }, 500);
+      }, 100);
     },
     onError: (error: any) => {
       console.error("Error accepting request:", error);
@@ -289,6 +290,31 @@ const WorkerDashboard = () => {
   const handleViewDetails = (request: ServiceRequest) => {
     setSelectedRequest(request);
     setDetailsOpen(true);
+  };
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        toast({
+          title: "Error",
+          description: "Could not fetch user profile",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setCurrentUserProfile(data);
+      setUserProfileOpen(true);
+    } catch (error) {
+      console.error("Error in fetchUserProfile:", error);
+    }
   };
 
   const isLoading = activeLoading || availableLoading || completedLoading;
@@ -385,6 +411,14 @@ const WorkerDashboard = () => {
                       >
                         <Info className="h-4 w-4 mr-1" />
                         View Details
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fetchUserProfile(request.user_id)}
+                      >
+                        <User className="h-4 w-4 mr-1" />
+                        View User
                       </Button>
                     </div>
                   </div>
@@ -572,6 +606,43 @@ const WorkerDashboard = () => {
                   <p>{new Date(selectedRequest.completed_at).toLocaleString()}</p>
                 </div>
               )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button>Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Profile Dialog */}
+      <Dialog open={userProfileOpen} onOpenChange={setUserProfileOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+            <DialogDescription>
+              Information about this customer
+            </DialogDescription>
+          </DialogHeader>
+          
+          {currentUserProfile && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h4 className="font-medium">Name</h4>
+                <p>{currentUserProfile.name || "Not provided"}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">Phone</h4>
+                <p>{currentUserProfile.phone || "Not provided"}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">User ID</h4>
+                <p className="text-sm font-mono">{currentUserProfile.id}</p>
+              </div>
             </div>
           )}
           

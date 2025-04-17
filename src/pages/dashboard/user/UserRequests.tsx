@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ const UserRequests = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch all service requests for the user
+  // Fetch all service requests for the user with reduced refetch interval
   const { data: serviceRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['userServiceRequests', user?.id],
     queryFn: async () => {
@@ -45,23 +44,25 @@ const UserRequests = () => {
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 3000 // Refresh more frequently
+    refetchInterval: 1000 // Faster refresh for better realtime updates
   });
 
-  // For debugging and realtime updates
+  // For debugging and realtime updates - improved subscription
   useEffect(() => {
     console.log("User service requests component rendered, count:", serviceRequests.length);
     
-    // Set up real-time subscription for updates
+    if (!user?.id) return;
+    
+    // Set up real-time subscription for updates with unique channel name
     const channel = supabase
-      .channel('user_requests_changes')
+      .channel('user_requests_updates')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'service_requests',
-          filter: user?.id ? `user_id=eq.${user.id}` : undefined
+          filter: `user_id=eq.${user.id}`
         },
         (payload) => {
           console.log('Real-time update received in UserRequests:', payload);
@@ -77,7 +78,7 @@ const UserRequests = () => {
       console.log("Cleaning up realtime subscription in UserRequests");
       supabase.removeChannel(channel);
     };
-  }, [user?.id, refetch, queryClient, serviceRequests.length]);
+  }, [user?.id, refetch, queryClient]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -173,6 +174,12 @@ const UserRequests = () => {
                       {request.completed_at && (
                         <p className="text-xs text-gray-500 mt-2">
                           Completed on: {new Date(request.completed_at).toLocaleDateString()}
+                        </p>
+                      )}
+                      
+                      {request.location.vehicleInfo && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Vehicle: {request.location.vehicleInfo}
                         </p>
                       )}
                     </div>

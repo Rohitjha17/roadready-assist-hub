@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product, ServiceRequest, convertJsonToServiceRequest, User, Profile } from "@/types";
 import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
@@ -9,7 +10,7 @@ export const addProduct = async (productData: Partial<Product>) => {
     console.log("Adding product with data:", productData);
     
     // Ensure the products storage bucket exists
-    await ensureStorageBucketExists('products');
+    await ensureStorageBucketExists('product-images');
     
     const { data, error } = await supabase
       .from('products')
@@ -43,26 +44,36 @@ export const ensureStorageBucketExists = async (bucketName: string) => {
   try {
     console.log(`Ensuring ${bucketName} bucket exists...`);
     
-    // Check if bucket exists
-    const { data, error } = await supabase.storage.getBucket(bucketName);
+    // First try to get the bucket
+    let { data, error } = await supabase.storage.getBucket(bucketName);
     
     // If bucket doesn't exist, create it
     if (error) {
       console.log(`Bucket doesn't exist, creating ${bucketName}...`);
+      
+      // Create bucket with public access
       const { data: createdBucket, error: createError } = await supabase.storage.createBucket(bucketName, {
         public: true,
         fileSizeLimit: 10485760, // 10MB
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
       });
       
       if (createError) {
         console.error(`Error creating ${bucketName} bucket:`, createError);
-      } else {
-        console.log(`Created ${bucketName} bucket successfully`);
+        return { success: false, error: createError };
       }
-    } else {
-      console.log(`${bucketName} bucket already exists`);
+      
+      // Make the bucket public with a policy
+      const { error: policyError } = await supabase.storage.from(bucketName).createSignedUrl('dummy.txt', 1);
+      if (policyError && !policyError.message.includes('not found')) {
+        console.error(`Error creating policy for ${bucketName}:`, policyError);
+      }
+      
+      console.log(`Created ${bucketName} bucket successfully`);
+      return { success: true };
     }
     
+    console.log(`${bucketName} bucket already exists`);
     return { success: true };
   } catch (error) {
     console.error(`Error ensuring ${bucketName} bucket exists:`, error);

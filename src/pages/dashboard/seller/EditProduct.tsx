@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Upload } from "lucide-react";
 import { Product } from "@/types";
 import { convertToProduct } from "@/lib/supabaseUtils";
+import { ensureStorageBucketExists } from "@/lib/supabaseService";
 
 const PRODUCT_CATEGORIES = [
   "Auto Parts",
@@ -43,6 +44,14 @@ const EditProduct = () => {
     image: "",
     imageUrl: "",
   });
+
+  // Ensure bucket exists when component mounts
+  useEffect(() => {
+    const setupBucket = async () => {
+      await ensureStorageBucketExists('product-images');
+    };
+    setupBucket();
+  }, []);
 
   useEffect(() => {
     fetchProduct();
@@ -95,22 +104,39 @@ const EditProduct = () => {
     setUploading(true);
 
     try {
+      // First ensure the bucket exists
+      const { success, error: bucketError } = await ensureStorageBucketExists('product-images');
+      
+      if (!success) {
+        throw bucketError || new Error("Failed to create storage bucket");
+      }
+
+      console.log("Uploading image to path:", filePath);
       const { error: uploadError } = await supabase.storage
         .from("product-images")
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from("product-images")
         .getPublicUrl(filePath);
 
+      console.log("Image uploaded successfully, public URL:", publicUrl);
       setProduct((prev) => ({ ...prev, imageUrl: publicUrl }));
+      
+      toast({
+        title: "Success",
+        description: "Product image uploaded successfully",
+      });
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to upload image",
+        title: "Upload Error",
+        description: error.message || "Failed to upload image. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -207,7 +233,7 @@ const EditProduct = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
+                  <Label htmlFor="price">Price (₹)</Label>
                   <Input
                     id="price"
                     type="number"

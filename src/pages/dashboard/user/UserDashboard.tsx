@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Get active requests using React Query instead of direct fetch
   const { data: activeRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['userActiveRequests', user?.id],
     queryFn: async () => {
@@ -38,27 +36,25 @@ const UserDashboard = () => {
       return data.map(item => convertJsonToServiceRequest(item));
     },
     enabled: !!user?.id,
-    refetchInterval: 3000 // Refresh more frequently
+    refetchInterval: 1000
   });
 
-  // Set up real-time subscription for service request updates
   useEffect(() => {
     if (!user?.id) return;
     
     console.log("Setting up real-time subscription for user dashboard:", user.id);
     const channel = supabase
-      .channel('user_dashboard_changes')
+      .channel('user_dashboard_updates')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for all events
+          event: '*',
           schema: 'public',
           table: 'service_requests',
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
           console.log('Real-time update received in UserDashboard:', payload);
-          // Immediately refetch
           refetch();
           queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
           queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
@@ -102,7 +98,6 @@ const UserDashboard = () => {
     }
   };
 
-  // For debugging
   useEffect(() => {
     console.log("User dashboard active requests:", activeRequests.length);
     console.log("Active requests details:", activeRequests);
@@ -192,6 +187,12 @@ const UserDashboard = () => {
                       {request.worker_id && request.status === 'accepted' && (
                         <p className="text-sm text-green-600 mt-2">
                           A service provider has accepted your request and is on the way.
+                        </p>
+                      )}
+                      
+                      {request.location.vehicleInfo && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Vehicle: {request.location.vehicleInfo}
                         </p>
                       )}
                     </div>
