@@ -5,7 +5,6 @@ import {
   Package,
   Car,
   ShoppingCart,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -135,13 +134,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       icon: <Truck className="h-5 w-5" />,
       role: ["worker"],
       isActive: (pathname) => pathname === "/dashboard/worker",
-    },
-    {
-      id: "user-settings",
-      title: "Settings",
-      href: `/dashboard/${userRole}/settings`,
-      icon: <Settings className="h-5 w-5" />,
-      role: ["user", "seller", "worker"],
     },
   ];
 

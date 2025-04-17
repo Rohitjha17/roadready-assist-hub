@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,8 @@ const WorkerDashboard = () => {
         .from('service_requests')
         .select('*')
         .eq('worker_id', user.id)
-        .eq('status', 'accepted');
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error("Error fetching worker requests:", error);
@@ -43,7 +45,8 @@ const WorkerDashboard = () => {
       
       return data.map(request => convertJsonToServiceRequest(request));
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   // Fetch available requests (pending, no worker assigned)
@@ -53,7 +56,8 @@ const WorkerDashboard = () => {
       const { data, error } = await supabase
         .from('service_requests')
         .select('*')
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error("Error fetching pending requests:", error);
@@ -67,7 +71,8 @@ const WorkerDashboard = () => {
       
       return data.map(request => convertJsonToServiceRequest(request));
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   // Fetch completed requests for this worker
@@ -80,7 +85,8 @@ const WorkerDashboard = () => {
         .from('service_requests')
         .select('*')
         .eq('worker_id', user.id)
-        .eq('status', 'completed');
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error("Error fetching completed requests:", error);
@@ -96,8 +102,26 @@ const WorkerDashboard = () => {
   const acceptRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
       setAcceptingId(requestId);
+      
       try {
         console.log("Accepting request:", requestId, "by worker:", user?.id);
+        
+        // First verify the request is still available
+        const { data: checkData, error: checkError } = await supabase
+          .from('service_requests')
+          .select('status')
+          .eq('id', requestId)
+          .single();
+        
+        if (checkError) {
+          throw new Error("Could not verify request status");
+        }
+        
+        if (checkData.status !== 'pending') {
+          throw new Error("This request is no longer available");
+        }
+        
+        // Now update the request
         const { error } = await supabase
           .from('service_requests')
           .update({
@@ -105,7 +129,8 @@ const WorkerDashboard = () => {
             status: 'accepted',
             updated_at: new Date().toISOString()
           })
-          .eq('id', requestId);
+          .eq('id', requestId)
+          .eq('status', 'pending'); // Only update if it's still pending
         
         if (error) {
           console.error("Error in supabase update:", error);
@@ -129,12 +154,13 @@ const WorkerDashboard = () => {
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error accepting request:", error);
       toast({
         title: "Error",
-        description: "Failed to accept the request. Please try again.",
+        description: error.message || "Failed to accept the request. Please try again.",
         variant: "destructive",
       });
     }
@@ -152,7 +178,8 @@ const WorkerDashboard = () => {
             completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
-          .eq('id', requestId);
+          .eq('id', requestId)
+          .eq('status', 'accepted'); // Only update if it's currently accepted
         
         if (error) throw error;
         return requestId;
@@ -168,6 +195,7 @@ const WorkerDashboard = () => {
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
     },
     onError: (error) => {
       console.error("Error completing request:", error);
@@ -254,7 +282,10 @@ const WorkerDashboard = () => {
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <div className="flex items-center text-gray-500 text-sm">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
+                        {request.location.address}
+                        {request.location.city ? `, ${request.location.city}` : ''}
+                        {request.location.state ? `, ${request.location.state}` : ''} 
+                        {request.location.zipCode || ''}
                       </div>
                     </div>
                     
@@ -301,7 +332,10 @@ const WorkerDashboard = () => {
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <div className="flex items-center text-gray-500 text-sm">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
+                        {request.location.address}
+                        {request.location.city ? `, ${request.location.city}` : ''}
+                        {request.location.state ? `, ${request.location.state}` : ''} 
+                        {request.location.zipCode || ''}
                       </div>
                     </div>
                     
@@ -348,7 +382,10 @@ const WorkerDashboard = () => {
                       <p className="text-gray-600 mb-2">{request.description}</p>
                       <div className="flex items-center text-gray-500 text-sm">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {request.location.address}{request.location.city ? `, ${request.location.city}` : ''}{request.location.state ? `, ${request.location.state}` : ''} {request.location.zipCode || ''}
+                        {request.location.address}
+                        {request.location.city ? `, ${request.location.city}` : ''}
+                        {request.location.state ? `, ${request.location.state}` : ''} 
+                        {request.location.zipCode || ''}
                       </div>
                       {request.completed_at && (
                         <p className="text-xs text-gray-500 mt-2">

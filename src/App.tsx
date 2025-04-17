@@ -22,6 +22,7 @@ const Shop = lazy(() => import("./pages/Shop"));
 // Dashboard Pages
 const UserDashboard = lazy(() => import("./pages/dashboard/user/UserDashboard"));
 const BookService = lazy(() => import("./pages/dashboard/user/BookService"));
+const UserRequests = lazy(() => import("./pages/dashboard/user/UserRequests"));
 const UserShop = lazy(() => import("./pages/dashboard/user/UserShop"));
 const SellerDashboard = lazy(() => import("./pages/dashboard/seller/SellerDashboard"));
 const WorkerDashboard = lazy(() => import("./pages/dashboard/worker/WorkerDashboard"));
@@ -128,6 +129,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute role="user">
                 <BookService />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/user/requests"
+            element={
+              <ProtectedRoute role="user">
+                <UserRequests />
               </ProtectedRoute>
             }
           />
