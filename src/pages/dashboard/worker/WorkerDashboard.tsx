@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Car, Clock, CheckCircle, MapPin } from "lucide-react";
+import { Car, Clock, CheckCircle, MapPin, User, Info } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
@@ -11,6 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 const WorkerDashboard = () => {
   const { user } = useAuth();
@@ -19,6 +28,8 @@ const WorkerDashboard = () => {
   const queryClient = useQueryClient();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Fetch active requests (assigned to this worker)
   const { data: activeRequests = [], isLoading: activeLoading } = useQuery({
@@ -151,10 +162,14 @@ const WorkerDashboard = () => {
         title: "Success",
         description: "You have accepted the service request",
       });
-      // Invalidate relevant queries to refresh data
+      
+      // Immediately invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
+      
+      // Also invalidate queries that might be used on the user dashboard
       queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
     },
     onError: (error: any) => {
       console.error("Error accepting request:", error);
@@ -192,10 +207,12 @@ const WorkerDashboard = () => {
         title: "Success",
         description: "Service marked as completed",
       });
+      
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
       queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
     },
     onError: (error) => {
       console.error("Error completing request:", error);
@@ -214,6 +231,11 @@ const WorkerDashboard = () => {
 
   const handleCompleteRequest = (requestId: string) => {
     completeRequestMutation.mutate(requestId);
+  };
+
+  const handleViewDetails = (request: ServiceRequest) => {
+    setSelectedRequest(request);
+    setDetailsOpen(true);
   };
 
   const isLoading = activeLoading || availableLoading || completedLoading;
@@ -289,13 +311,21 @@ const WorkerDashboard = () => {
                       </div>
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col space-y-2">
                       <Button 
                         size="sm" 
                         onClick={() => handleCompleteRequest(request.id)}
                         disabled={completingId === request.id}
                       >
                         {completingId === request.id ? 'Processing...' : 'Complete Job'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails(request)}
+                      >
+                        <Info className="h-4 w-4 mr-1" />
+                        View Details
                       </Button>
                     </div>
                   </div>
@@ -339,13 +369,21 @@ const WorkerDashboard = () => {
                       </div>
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col space-y-2">
                       <Button 
                         size="sm" 
                         onClick={() => handleAcceptRequest(request.id)}
                         disabled={acceptingId === request.id}
                       >
                         {acceptingId === request.id ? 'Processing...' : 'Accept Job'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails(request)}
+                      >
+                        <Info className="h-4 w-4 mr-1" />
+                        View Details
                       </Button>
                     </div>
                   </div>
@@ -393,6 +431,14 @@ const WorkerDashboard = () => {
                         </p>
                       )}
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewDetails(request)}
+                    >
+                      <Info className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -406,6 +452,77 @@ const WorkerDashboard = () => {
           </Card>
         )}
       </div>
+
+      {/* Request Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Details</DialogTitle>
+            <DialogDescription>
+              Information about this service request
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h4 className="font-medium">Service Type</h4>
+                <p>{selectedRequest.service_type}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">Description</h4>
+                <p>{selectedRequest.description || "No description provided"}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">User ID</h4>
+                <p className="text-sm font-mono">{selectedRequest.user_id}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">Location</h4>
+                <p>
+                  {selectedRequest.location.address}
+                  {selectedRequest.location.city ? `, ${selectedRequest.location.city}` : ''}
+                  {selectedRequest.location.state ? `, ${selectedRequest.location.state}` : ''} 
+                  {selectedRequest.location.zipCode || ''}
+                </p>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">Status</h4>
+                <Badge className={`
+                  ${selectedRequest.status === 'pending' ? 'bg-yellow-500' : ''}
+                  ${selectedRequest.status === 'accepted' ? 'bg-blue-500' : ''}
+                  ${selectedRequest.status === 'completed' ? 'bg-green-500' : ''}
+                  ${selectedRequest.status === 'cancelled' ? 'bg-red-500' : ''}
+                `}>
+                  {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
+                </Badge>
+              </div>
+              
+              <div className="space-y-1">
+                <h4 className="font-medium">Created</h4>
+                <p>{new Date(selectedRequest.created_at).toLocaleString()}</p>
+              </div>
+              
+              {selectedRequest.completed_at && (
+                <div className="space-y-1">
+                  <h4 className="font-medium">Completed</h4>
+                  <p>{new Date(selectedRequest.completed_at).toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button>Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

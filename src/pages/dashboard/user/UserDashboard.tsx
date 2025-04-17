@@ -33,7 +33,8 @@ const UserDashboard = () => {
       
       return data.map(item => convertJsonToServiceRequest(item));
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    refetchInterval: 10000 // Refresh every 10 seconds to get updates
   });
 
   const getStatusIcon = (status: string) => {
@@ -153,6 +154,13 @@ const UserDashboard = () => {
                         </p>
                       )}
                     </div>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate("/dashboard/user/requests")}
+                      size="sm"
+                    >
+                      View Details
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

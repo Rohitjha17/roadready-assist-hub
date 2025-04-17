@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Product, ServiceRequest, convertJsonToServiceRequest } from "@/types";
+import { Product, ServiceRequest, convertJsonToServiceRequest, User, Profile } from "@/types";
 import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
 import { UserRole } from "@/types";
 
@@ -204,5 +204,41 @@ export const getUserProfile = async (userId: string) => {
   } catch (error) {
     console.error("Error fetching user profile:", error);
     return { profile: null, error };
+  }
+};
+
+// Get service request with user profile information
+export const getServiceRequestWithUser = async (requestId: string) => {
+  try {
+    // First get the service request
+    const { data: requestData, error: requestError } = await supabase
+      .from('service_requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+    
+    if (requestError) {
+      console.error("Error fetching service request:", requestError);
+      return { request: null, userProfile: null, error: requestError };
+    }
+    
+    const request = convertJsonToServiceRequest(requestData);
+    
+    // Then get the user profile
+    const { profile, error: profileError } = await getUserProfile(request.user_id);
+    
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+      return { request, userProfile: null, error: profileError };
+    }
+    
+    return { 
+      request, 
+      userProfile: profile,
+      error: null 
+    };
+  } catch (error) {
+    console.error("Error fetching service request with user:", error);
+    return { request: null, userProfile: null, error };
   }
 };

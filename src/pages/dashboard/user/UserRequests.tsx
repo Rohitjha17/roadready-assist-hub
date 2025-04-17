@@ -41,7 +41,8 @@ const UserRequests = () => {
       
       return data.map(request => convertJsonToServiceRequest(request));
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    refetchInterval: 10000 // Refresh every 10 seconds to get updates
   });
 
   const getStatusIcon = (status: string) => {
