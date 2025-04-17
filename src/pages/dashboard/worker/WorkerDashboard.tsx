@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { updateServiceRequest } from "@/lib/supabaseService";
 
 const WorkerDashboard = () => {
   const { user } = useAuth();
@@ -59,7 +60,7 @@ const WorkerDashboard = () => {
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 5000, // Refresh more frequently (every 5 seconds)
+    refetchInterval: 3000, // Refresh more frequently
   });
 
   // Fetch available requests (pending, no worker assigned)
@@ -87,11 +88,11 @@ const WorkerDashboard = () => {
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 5000, // Refresh more frequently (every 5 seconds)
+    refetchInterval: 3000, // Refresh more frequently
   });
 
   // Fetch completed requests for this worker
-  const { data: completedRequests = [], isLoading: completedLoading } = useQuery({
+  const { data: completedRequests = [], isLoading: completedLoading, refetch: refetchCompleted } = useQuery({
     queryKey: ['workerCompletedRequests', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -110,8 +111,47 @@ const WorkerDashboard = () => {
       
       return data.map(request => convertJsonToServiceRequest(request));
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    refetchInterval: 5000,
   });
+
+  // Set up realtime subscription
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    console.log("Setting up realtime subscription for worker dashboard");
+    const channel = supabase
+      .channel('worker_dashboard_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'service_requests'
+        },
+        (payload) => {
+          console.log('Realtime update received in worker dashboard:', payload);
+          
+          // Force refresh all data
+          refetchActive();
+          refetchAvailable();
+          refetchCompleted();
+          
+          // Invalidate all relevant queries
+          queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("Cleaning up realtime subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient, refetchActive, refetchAvailable, refetchCompleted]);
 
   // Accept request mutation
   const acceptRequestMutation = useMutation({
@@ -136,22 +176,19 @@ const WorkerDashboard = () => {
           throw new Error("This request is no longer available");
         }
         
-        // Now update the request
-        const { error } = await supabase
-          .from('service_requests')
-          .update({
-            worker_id: user?.id,
-            status: 'accepted',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', requestId)
-          .eq('status', 'pending'); // Only update if it's still pending
+        // Now update the request - using the updateServiceRequest function
+        const { success, error, data } = await updateServiceRequest(requestId, {
+          worker_id: user?.id,
+          status: 'accepted',
+          updated_at: new Date().toISOString()
+        });
         
-        if (error) {
-          console.error("Error in supabase update:", error);
-          throw error;
+        if (error || !success) {
+          console.error("Error in service update:", error);
+          throw error || new Error("Failed to update service request");
         }
         
+        console.log("Successfully updated service request:", data);
         return requestId;
       } catch (err) {
         console.error("Error in mutation function:", err);
@@ -167,20 +204,17 @@ const WorkerDashboard = () => {
         description: "You have accepted the service request",
       });
       
-      // Immediately invalidate and refetch queries to refresh the data
-      refetchActive();
-      refetchAvailable();
-      
-      // Force refresh all relevant queries
-      queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
-      
-      // Add a small delay to ensure data is refreshed
+      // Force immediate refetch
       setTimeout(() => {
+        // Force refresh all data
         refetchActive();
         refetchAvailable();
+        
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
       }, 500);
     },
     onError: (error: any) => {
@@ -198,17 +232,17 @@ const WorkerDashboard = () => {
     mutationFn: async (requestId: string) => {
       setCompletingId(requestId);
       try {
-        const { error } = await supabase
-          .from('service_requests')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', requestId)
-          .eq('status', 'accepted'); // Only update if it's currently accepted
+        // Use the updateServiceRequest function
+        const { success, error } = await updateServiceRequest(requestId, {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
         
-        if (error) throw error;
+        if (error || !success) {
+          throw error || new Error("Failed to complete the request");
+        }
+        
         return requestId;
       } finally {
         setCompletingId(null);
@@ -220,12 +254,18 @@ const WorkerDashboard = () => {
         description: "Service marked as completed",
       });
       
-      // Invalidate relevant queries to refresh data
-      refetchActive();
-      queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
+      // Force immediate refetch
+      setTimeout(() => {
+        // Force refresh all data
+        refetchActive();
+        refetchCompleted();
+        
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
+      }, 500);
     },
     onError: (error) => {
       console.error("Error completing request:", error);
@@ -254,7 +294,7 @@ const WorkerDashboard = () => {
   const isLoading = activeLoading || availableLoading || completedLoading;
 
   // For debugging
-  React.useEffect(() => {
+  useEffect(() => {
     console.log("Active requests:", activeRequests.length);
     console.log("Available requests:", availableRequests.length);
   }, [activeRequests, availableRequests]);

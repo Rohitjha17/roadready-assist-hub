@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -9,13 +9,14 @@ import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const UserRequests = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Fetch all service requests for the user
   const { data: serviceRequests = [], isLoading, refetch } = useQuery({
@@ -44,34 +45,39 @@ const UserRequests = () => {
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 5000 // Refresh every 5 seconds to get updates
+    refetchInterval: 3000 // Refresh more frequently
   });
 
-  // For debugging
-  React.useEffect(() => {
-    console.log("User service requests:", serviceRequests.length);
+  // For debugging and realtime updates
+  useEffect(() => {
+    console.log("User service requests component rendered, count:", serviceRequests.length);
+    
     // Set up real-time subscription for updates
     const channel = supabase
-      .channel('service_requests_changes')
+      .channel('user_requests_changes')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'service_requests',
           filter: user?.id ? `user_id=eq.${user.id}` : undefined
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log('Real-time update received in UserRequests:', payload);
+          // Immediately refetch data
           refetch();
+          queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
         }
       )
       .subscribe();
 
     return () => {
+      console.log("Cleaning up realtime subscription in UserRequests");
       supabase.removeChannel(channel);
     };
-  }, [user?.id, refetch]);
+  }, [user?.id, refetch, queryClient, serviceRequests.length]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

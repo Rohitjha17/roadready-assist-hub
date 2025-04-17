@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Product, ServiceRequest, convertJsonToServiceRequest, User, Profile } from "@/types";
 import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
@@ -134,26 +133,23 @@ export const createServiceRequest = async (requestData: Partial<ServiceRequest>)
 // Enable Realtime updates for the service_requests table
 export const enableRealtimeForServiceRequests = async () => {
   try {
-    // Enable REPLICA IDENTITY FULL for the table to ensure complete row data is captured
-    const { error: replicaError } = await supabase.rpc('alter_table_replica_identity', {
-      table_name: 'service_requests',
-      replica_identity: 'FULL'
-    });
-    
-    if (replicaError) {
-      console.error("Error setting REPLICA IDENTITY:", replicaError);
-    }
+    console.log("Enabling realtime for service_requests table");
     
     // Add the table to the supabase_realtime publication
-    const { error: pubError } = await supabase.rpc('add_table_to_publication', {
-      table_name: 'service_requests'
+    const { error: pubError } = await supabase.rpc('supabase_functions.add_publication', {
+      publication_name: 'supabase_realtime',
+      table_names: ['service_requests'],
+      insert: true,
+      update: true,
+      delete: true,
+      truncate: true
     });
     
     if (pubError) {
       console.error("Error adding table to publication:", pubError);
     }
     
-    return { success: !replicaError && !pubError };
+    return { success: !pubError };
   } catch (error) {
     console.error("Error enabling realtime:", error);
     return { success: false };
@@ -201,22 +197,24 @@ export const updateServiceRequest = async (requestId: string, updateData: Partia
       dataToUpdate.location = dataToUpdate.location as any;
     }
 
-    const { error } = await supabase
+    // Perform the update
+    const { data, error } = await supabase
       .from('service_requests')
       .update(dataToUpdate)
-      .eq('id', requestId);
+      .eq('id', requestId)
+      .select();
     
     if (error) {
       console.error("Error updating service request:", error);
       return { success: false, error };
     }
     
-    console.log("Service request updated successfully");
+    console.log("Service request updated successfully:", data);
     
-    // Try to enable realtime updates if they're not already enabled
+    // Try to enable realtime updates
     await enableRealtimeForServiceRequests();
     
-    return { success: true, error: null };
+    return { success: true, error: null, data };
   } catch (error) {
     console.error("Error updating service request:", error);
     return { success: false, error };

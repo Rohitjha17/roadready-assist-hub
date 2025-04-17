@@ -8,11 +8,12 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceRequest, convertJsonToServiceRequest } from "@/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const UserDashboard = () => {
   const { user, userData } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // Get active requests using React Query instead of direct fetch
   const { data: activeRequests = [], isLoading, refetch } = useQuery({
@@ -33,19 +34,20 @@ const UserDashboard = () => {
       }
       
       console.log("User active requests found:", data?.length || 0);
+      console.log("Active requests data:", data);
       return data.map(item => convertJsonToServiceRequest(item));
     },
     enabled: !!user?.id,
-    refetchInterval: 5000 // Refresh every 5 seconds to get updates
+    refetchInterval: 3000 // Refresh more frequently
   });
 
   // Set up real-time subscription for service request updates
   useEffect(() => {
     if (!user?.id) return;
     
-    console.log("Setting up real-time subscription for user:", user.id);
+    console.log("Setting up real-time subscription for user dashboard:", user.id);
     const channel = supabase
-      .channel('user_requests_changes')
+      .channel('user_dashboard_changes')
       .on(
         'postgres_changes',
         {
@@ -55,16 +57,20 @@ const UserDashboard = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log('Real-time update received in UserDashboard:', payload);
+          // Immediately refetch
           refetch();
+          queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
         }
       )
       .subscribe();
 
     return () => {
+      console.log("Cleaning up real-time subscription in UserDashboard");
       supabase.removeChannel(channel);
     };
-  }, [user?.id, refetch]);
+  }, [user?.id, refetch, queryClient]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -95,6 +101,12 @@ const UserDashboard = () => {
         return "Unknown status";
     }
   };
+
+  // For debugging
+  useEffect(() => {
+    console.log("User dashboard active requests:", activeRequests.length);
+    console.log("Active requests details:", activeRequests);
+  }, [activeRequests]);
 
   return (
     <DashboardLayout>
