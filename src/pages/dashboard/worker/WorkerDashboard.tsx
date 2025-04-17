@@ -32,11 +32,12 @@ const WorkerDashboard = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Fetch active requests (assigned to this worker)
-  const { data: activeRequests = [], isLoading: activeLoading } = useQuery({
+  const { data: activeRequests = [], isLoading: activeLoading, refetch: refetchActive } = useQuery({
     queryKey: ['workerActiveRequests', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
+      console.log("Fetching active requests for worker:", user.id);
       const { data, error } = await supabase
         .from('service_requests')
         .select('*')
@@ -54,16 +55,18 @@ const WorkerDashboard = () => {
         return [];
       }
       
+      console.log("Active requests found:", data?.length || 0);
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 5000, // Refresh more frequently (every 5 seconds)
   });
 
   // Fetch available requests (pending, no worker assigned)
-  const { data: availableRequests = [], isLoading: availableLoading } = useQuery({
+  const { data: availableRequests = [], isLoading: availableLoading, refetch: refetchAvailable } = useQuery({
     queryKey: ['availableRequests'],
     queryFn: async () => {
+      console.log("Fetching available requests");
       const { data, error } = await supabase
         .from('service_requests')
         .select('*')
@@ -80,10 +83,11 @@ const WorkerDashboard = () => {
         return [];
       }
       
+      console.log("Available requests found:", data?.length || 0);
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 5000, // Refresh more frequently (every 5 seconds)
   });
 
   // Fetch completed requests for this worker
@@ -163,13 +167,21 @@ const WorkerDashboard = () => {
         description: "You have accepted the service request",
       });
       
-      // Immediately invalidate queries to refresh the data
+      // Immediately invalidate and refetch queries to refresh the data
+      refetchActive();
+      refetchAvailable();
+      
+      // Force refresh all relevant queries
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['availableRequests'] });
-      
-      // Also invalidate queries that might be used on the user dashboard
       queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['userServiceRequests'] });
+      
+      // Add a small delay to ensure data is refreshed
+      setTimeout(() => {
+        refetchActive();
+        refetchAvailable();
+      }, 500);
     },
     onError: (error: any) => {
       console.error("Error accepting request:", error);
@@ -209,6 +221,7 @@ const WorkerDashboard = () => {
       });
       
       // Invalidate relevant queries to refresh data
+      refetchActive();
       queryClient.invalidateQueries({ queryKey: ['workerActiveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['workerCompletedRequests'] });
       queryClient.invalidateQueries({ queryKey: ['userActiveRequests'] });
@@ -239,6 +252,12 @@ const WorkerDashboard = () => {
   };
 
   const isLoading = activeLoading || availableLoading || completedLoading;
+
+  // For debugging
+  React.useEffect(() => {
+    console.log("Active requests:", activeRequests.length);
+    console.log("Available requests:", availableRequests.length);
+  }, [activeRequests, availableRequests]);
 
   return (
     <DashboardLayout>

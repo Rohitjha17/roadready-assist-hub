@@ -15,11 +15,12 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   
   // Get active requests using React Query instead of direct fetch
-  const { data: activeRequests = [], isLoading } = useQuery({
+  const { data: activeRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['userActiveRequests', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
+      console.log("Fetching active requests for user dashboard:", user.id);
       const { data, error } = await supabase
         .from('service_requests')
         .select('*')
@@ -31,11 +32,39 @@ const UserDashboard = () => {
         return [];
       }
       
+      console.log("User active requests found:", data?.length || 0);
       return data.map(item => convertJsonToServiceRequest(item));
     },
     enabled: !!user?.id,
-    refetchInterval: 10000 // Refresh every 10 seconds to get updates
+    refetchInterval: 5000 // Refresh every 5 seconds to get updates
   });
+
+  // Set up real-time subscription for service request updates
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    console.log("Setting up real-time subscription for user:", user.id);
+    const channel = supabase
+      .channel('user_requests_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events
+          schema: 'public',
+          table: 'service_requests',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetch]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

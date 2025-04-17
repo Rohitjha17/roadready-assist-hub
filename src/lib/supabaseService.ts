@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product, ServiceRequest, convertJsonToServiceRequest, User, Profile } from "@/types";
 import { convertToProduct, prepareForSupabase } from "./supabaseUtils";
@@ -130,6 +131,35 @@ export const createServiceRequest = async (requestData: Partial<ServiceRequest>)
   }
 };
 
+// Enable Realtime updates for the service_requests table
+export const enableRealtimeForServiceRequests = async () => {
+  try {
+    // Enable REPLICA IDENTITY FULL for the table to ensure complete row data is captured
+    const { error: replicaError } = await supabase.rpc('alter_table_replica_identity', {
+      table_name: 'service_requests',
+      replica_identity: 'FULL'
+    });
+    
+    if (replicaError) {
+      console.error("Error setting REPLICA IDENTITY:", replicaError);
+    }
+    
+    // Add the table to the supabase_realtime publication
+    const { error: pubError } = await supabase.rpc('add_table_to_publication', {
+      table_name: 'service_requests'
+    });
+    
+    if (pubError) {
+      console.error("Error adding table to publication:", pubError);
+    }
+    
+    return { success: !replicaError && !pubError };
+  } catch (error) {
+    console.error("Error enabling realtime:", error);
+    return { success: false };
+  }
+};
+
 export const getServiceRequests = async (filters: Record<string, any> = {}) => {
   try {
     let query = supabase
@@ -163,6 +193,8 @@ export const getServiceRequests = async (filters: Record<string, any> = {}) => {
 
 export const updateServiceRequest = async (requestId: string, updateData: Partial<ServiceRequest>) => {
   try {
+    console.log("Updating service request:", requestId, "with data:", updateData);
+    
     // Ensure location is JSON if it's an object
     const dataToUpdate = { ...updateData };
     if (dataToUpdate.location && typeof dataToUpdate.location === 'object') {
@@ -178,6 +210,11 @@ export const updateServiceRequest = async (requestId: string, updateData: Partia
       console.error("Error updating service request:", error);
       return { success: false, error };
     }
+    
+    console.log("Service request updated successfully");
+    
+    // Try to enable realtime updates if they're not already enabled
+    await enableRealtimeForServiceRequests();
     
     return { success: true, error: null };
   } catch (error) {

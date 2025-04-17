@@ -18,11 +18,12 @@ const UserRequests = () => {
   const { toast } = useToast();
   
   // Fetch all service requests for the user
-  const { data: serviceRequests = [], isLoading } = useQuery({
+  const { data: serviceRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['userServiceRequests', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
+      console.log("Fetching service requests for user:", user.id);
       const { data, error } = await supabase
         .from('service_requests')
         .select('*')
@@ -39,11 +40,38 @@ const UserRequests = () => {
         return [];
       }
       
+      console.log("User service requests found:", data?.length || 0);
       return data.map(request => convertJsonToServiceRequest(request));
     },
     enabled: !!user?.id,
-    refetchInterval: 10000 // Refresh every 10 seconds to get updates
+    refetchInterval: 5000 // Refresh every 5 seconds to get updates
   });
+
+  // For debugging
+  React.useEffect(() => {
+    console.log("User service requests:", serviceRequests.length);
+    // Set up real-time subscription for updates
+    const channel = supabase
+      .channel('service_requests_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'service_requests',
+          filter: user?.id ? `user_id=eq.${user.id}` : undefined
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetch]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
